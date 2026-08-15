@@ -132,6 +132,24 @@ jobs:
           fi
           echo "Publishing version $version."
 
+      # Action consumers pin `@v1` and expect it to follow the latest v1.x. This is
+      # the only thing that moves it.
+      #
+      # Deliberately before publishing: the Action and the npm packages are
+      # independent artefacts, and everything above has already verified this tree.
+      # An npm outage, a rotated token or a misconfigured trusted publisher should
+      # not strand Action consumers on an old bundle.
+      - name: Move the floating major tag
+        env:
+          TAG: ${{ needs.release-please.outputs.tag }}
+          MAJOR: v${{ needs.release-please.outputs.major }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git tag -f "$MAJOR" "$TAG"
+          git push --force origin "refs/tags/$MAJOR"
+          echo "$MAJOR now points at $TAG"
+
       # pnpm packs — it is the only thing that knows how to rewrite `workspace:*`
       # into a real version — and npm publishes, because npm is what performs the
       # OIDC exchange for trusted publishing. Verified: the packed manifest carries
@@ -179,15 +197,3 @@ jobs:
           echo "nothing was published to npm. The tag, the GitHub release and the"
           echo "floating major tag are all in place. See CONTRIBUTING.md#tokens."
 
-      # Action consumers pin `@v1` and expect it to follow the latest v1.x. This is
-      # the only thing that moves it.
-      - name: Move the floating major tag
-        env:
-          TAG: ${{ needs.release-please.outputs.tag }}
-          MAJOR: v${{ needs.release-please.outputs.major }}
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email 'github-actions[bot]@users.noreply.github.com'
-          git tag -f "$MAJOR" "$TAG"
-          git push --force origin "refs/tags/$MAJOR"
-          echo "$MAJOR now points at $TAG"
