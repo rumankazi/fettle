@@ -1,177 +1,249 @@
-import { assess, buildBadgePayload, type RepoReport } from '@fettle/core';
-import { parseArgs as parseNodeArgs } from 'node:util';
+/**
+ * CLI argument parsing, rendering and exit codes.
+ *
+ * Kept separate from `index.ts` (the bin shim) so the whole command is testable as
+ * a function: nothing here reads `process` directly or calls `process.exit`.
+ */
 
-export type Format = 'json' | 'markdown' | 'badge';
-export type Grade = 'A' | 'B' | 'C' | 'D' | 'F' | 'N/A';
+import { parseArgs } from 'node:util';
+import {
+  badgeFilename,
+  buildBadgePayload,
+  buildHealthReport,
+  CONFIG_FILENAME,
+  meetsGradeFloor,
+  renderMarkdown,
+  TOOL_NAME,
+  TOOL_VERSION,
+  type BadgePayload,
+  type Grade,
+  type HealthReport,
+  type RepoAssessment,
+} from '@fettle/core';
 
-export interface CliArgs {
+export const EXIT_OK = 0;
+export const EXIT_BELOW_FLOOR = 1;
+export const EXIT_USAGE = 2;
+
+const FORMATS = ['json', 'markdown', 'badge'] as const;
+export type Format = (typeof FORMATS)[number];
+
+/** `N/A` is excluded: a floor of "no checks succeeded" is not a meaningful gate. */
+const FLOOR_GRADES = ['A', 'B', 'C', 'D', 'F'] as const;
+export type FloorGrade = (typeof FLOOR_GRADES)[number];
+
+export interface CliOptions {
   repos: string[];
   format: Format;
-  failBelow?: Grade;
+  failBelow?: FloorGrade;
   apiUrl?: string;
-  configPath?: string;
-  help?: boolean;
+  configPath: string;
+  help: boolean;
+  version: boolean;
 }
 
-export interface RunCliOptions {
-  argv?: string[];
-  repos?: string[];
-  format?: Format;
-  failBelow?: Grade;
-  apiUrl?: string;
-  configPath?: string;
-  env?: Record<string, string | undefined>;
-  stdout?: { write: (chunk: string) => void | Promise<void> };
-  assessFn?: (repo: string, config?: unknown) => Promise<RepoReport>;
+/** A problem with how the command was invoked. Reported to stderr, exit code 2. */
+export class UsageError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'UsageError';
+  }
 }
 
-export function parseArgs(
-  argv: string[] = process.argv.slice(2),
-  env: Record<string, string | undefined> = process.env,
-): CliArgs {
-  const parsed = parseNodeArgs({
-    strict: false,
-    allowPositionals: true,
-    options: {
-      repos: { type: 'string' },
-      format: { type: 'string' },
-      'fail-below': { type: 'string' },
-      'api-url': { type: 'string' },
-      config: { type: 'string' },
-      help: { type: 'boolean', short: 'h' },
-    },
-    args: argv,
-  });
+export const USAGE = `${TOOL_NAME} — grade the maintenance health of GitHub repositories
 
-  const reposInput =
-    typeof parsed.values.repos === 'string'
-      ? parsed.values.repos
-      : typeof env.GITHUB_REPOSITORY === 'string'
-        ? env.GITHUB_REPOSITORY
-        : 'example/demo';
-  const repos = String(reposInput)
+Usage:
+  ${TOOL_NAME} --repos <org/name[,org/other]> [options]
+
+Options:
+  --repos <list>       Comma- or newline-separated repositories. Defaults to
+                       $GITHUB_REPOSITORY when set.
+  --format <format>    Output format: ${FORMATS.join(' | ')} (default: json).
+  --fail-below <grade> Exit ${EXIT_BELOW_FLOOR} if any repository grades below this
+                       floor: ${FLOOR_GRADES.join(' | ')}.
+  --api-url <url>      GitHub API base URL for GitHub Enterprise Server.
+                       Defaults to $GITHUB_API_URL, then https://api.github.com.
+  --config <path>      Local config file to apply to every repository, instead of
+                       reading ${CONFIG_FILENAME} from each one.
+  --version            Print the version and exit.
+  --help               Print this message and exit.
+
+Authentication:
+  Reads the token from $GITHUB_TOKEN.
+
+Exit codes:
+  ${EXIT_OK}  success
+  ${EXIT_BELOW_FLOOR}  a repository graded below --fail-below
+  ${EXIT_USAGE}  invalid usage`;
+
+function splitRepoList(value: string): string[] {
+  return value
     .split(/[\n,]+/)
     .map((repo) => repo.trim())
-    .filter(Boolean);
+    .filter((repo) => repo.length > 0);
+}
 
-  const formatValue =
-    typeof parsed.values.format === 'string' ? parsed.values.format.toLowerCase() : 'json';
-  const failBelowValue =
-    typeof parsed.values['fail-below'] === 'string' ? parsed.values['fail-below'] : undefined;
+function assertRepoName(repo: string): void {
+  if (!/^[^/\s]+\/[^/\s]+$/.test(repo)) {
+    throw new UsageError(`'${repo}' is not a valid repository; expected the form org/name`);
+  }
+}
+
+function oneOf<T extends string>(value: string, allowed: readonly T[], flag: string): T {
+  if (!(allowed as readonly string[]).includes(value)) {
+    throw new UsageError(`--${flag} must be one of ${allowed.join(', ')}; received '${value}'`);
+  }
+  return value as T;
+}
+
+/**
+ * Parses argv strictly: an unknown or misspelled flag is an error, never a silently
+ * ignored one, because a swallowed `--fail-below` turns a gate into a no-op.
+ */
+export function parseCliOptions(
+  argv: readonly string[],
+  env: Readonly<Record<string, string | undefined>> = {},
+): CliOptions {
+  let parsed;
+  try {
+    parsed = parseArgs({
+      args: [...argv],
+      strict: true,
+      allowPositionals: false,
+      options: {
+        repos: { type: 'string' },
+        format: { type: 'string' },
+        'fail-below': { type: 'string' },
+        'api-url': { type: 'string' },
+        config: { type: 'string' },
+        version: { type: 'boolean', default: false },
+        help: { type: 'boolean', short: 'h', default: false },
+      },
+    });
+  } catch (error) {
+    throw new UsageError(error instanceof Error ? error.message : String(error));
+  }
+
+  const { values } = parsed;
+  const help = values.help === true;
+  const version = values.version === true;
+
+  const reposInput = values.repos ?? env.GITHUB_REPOSITORY;
+  const repos = reposInput === undefined ? [] : splitRepoList(reposInput);
+
+  if (!help && !version) {
+    if (repos.length === 0) {
+      throw new UsageError(
+        'no repositories given; pass --repos org/name or set $GITHUB_REPOSITORY',
+      );
+    }
+    repos.forEach(assertRepoName);
+  }
 
   return {
     repos,
-    format: ['json', 'markdown', 'badge'].includes(formatValue) ? (formatValue as Format) : 'json',
+    format: values.format === undefined ? 'json' : oneOf(values.format, FORMATS, 'format'),
     failBelow:
-      failBelowValue && ['A', 'B', 'C', 'D', 'F', 'N/A'].includes(failBelowValue)
-        ? (failBelowValue as Grade)
-        : undefined,
-    apiUrl:
-      typeof parsed.values['api-url'] === 'string' ? parsed.values['api-url'] : env.GITHUB_API_URL,
-    configPath: typeof parsed.values.config === 'string' ? parsed.values.config : undefined,
-    help: Boolean(parsed.values.help),
+      values['fail-below'] === undefined
+        ? undefined
+        : oneOf(values['fail-below'], FLOOR_GRADES, 'fail-below'),
+    apiUrl: values['api-url'] ?? env.GITHUB_API_URL,
+    configPath: values.config ?? CONFIG_FILENAME,
+    help,
+    version,
   };
 }
 
-export function renderJson(report: RepoReport): string {
-  return JSON.stringify(report, null, 2);
-}
-
-export function renderMarkdown(report: RepoReport): string {
-  const header = [
-    `# Fettle report`,
-    '',
-    `## ${report.repo}`,
-    '',
-    `- **Default branch:** ${report.defaultBranch}`,
-    `- **Grade:** ${report.grade}`,
-    `- **Score:** ${report.score ?? 'N/A'}`,
-    '',
-    '| Rule | Status | Score | Weight | Evidence |',
-    '| --- | --- | ---: | ---: | --- |',
-  ];
-
-  const rows = report.rules.map((rule) => {
-    const evidenceText = String(rule.evidence ?? '').replace(/\|/g, '\\|');
-    return `| ${rule.id} | ${rule.status} | ${rule.score ?? 'N/A'} | ${rule.weight} | ${evidenceText} |`;
-  });
-
-  return [...header, ...rows].join('\n');
-}
-
-export function renderBadge(report: RepoReport): string {
-  return JSON.stringify(buildBadgePayload(report), null, 2);
-}
-
-function gradeOrder(grade: Grade | undefined): number {
-  const order: Record<string, number> = {
-    A: 5,
-    B: 4,
-    C: 3,
-    D: 2,
-    F: 1,
-    'N/A': 0,
-  };
-  return order[grade ?? 'N/A'] ?? 0;
-}
-
-export async function runCli(
-  options: RunCliOptions = {},
-): Promise<{ exitCode: number; output: string }> {
-  const argv = options.argv ?? process.argv.slice(2);
-  const env = options.env ?? process.env;
-  const parsed = parseArgs(argv, env);
-  const repos = options.repos ?? parsed.repos;
-  const format = options.format ?? parsed.format;
-  const failBelow = options.failBelow ?? parsed.failBelow;
-  const configPath = options.configPath ?? parsed.configPath;
-  const stdout = options.stdout ?? process.stdout;
-  const assessFn =
-    options.assessFn ?? (async (repo: string, config?: unknown) => assess(repo, config as never));
-
-  if (parsed.help) {
-    const usage = [
-      'Usage: fettle --repos org/a,org/b --format json|markdown|badge [--api-url <url>] [--config <path>] [--fail-below <grade>]',
-      '',
-      'Options:',
-      '  --repos <list>      Comma or newline separated GitHub repositories',
-      '  --format <format>   Output format: json, markdown, badge',
-      '  --fail-below <grade> Exit 1 when any repo grade is below this threshold',
-      '  --api-url <url>     Override the GitHub API base URL',
-      '  --config <path>     Local config file path',
-      '  --help              Show this help message',
-    ].join('\n');
-
-    await stdout.write(`${usage}\n`);
-    return { exitCode: 0, output: usage + '\n' };
-  }
-
-  const results = await Promise.all(
-    repos.map(async (repo) => {
-      const config = configPath ? { configPath } : undefined;
-      return assessFn(repo, config);
-    }),
+/** Badge payloads keyed by repository, so multi-repo output stays valid JSON. */
+export function renderBadges(report: HealthReport): Record<string, BadgePayload> {
+  return Object.fromEntries(
+    report.repos.map((repo) => [badgeFilename(repo.repo), buildBadgePayload(repo)]),
   );
-
-  let output = '';
-  if (format === 'json') {
-    output = JSON.stringify(results, null, 2);
-  } else if (format === 'markdown') {
-    output = results.map((report) => renderMarkdown(report)).join('\n\n');
-  } else {
-    output = results.map((report) => renderBadge(report)).join('\n\n');
-  }
-
-  await stdout.write(`${output}\n`);
-
-  const threshold = failBelow ? gradeOrder(failBelow) : null;
-  const exitCode =
-    threshold === null || results.every((report) => gradeOrder(report.grade) >= threshold) ? 0 : 1;
-
-  return { exitCode, output };
 }
 
-export async function main(): Promise<number> {
-  const result = await runCli();
-  return result.exitCode;
+export function render(report: HealthReport, format: Format): string {
+  switch (format) {
+    case 'json':
+      return JSON.stringify(report, null, 2);
+    case 'markdown':
+      return renderMarkdown(report);
+    case 'badge':
+      return JSON.stringify(renderBadges(report), null, 2);
+  }
+}
+
+function belowFloor(report: HealthReport, floor: FloorGrade): Grade[] {
+  return report.repos.filter((repo) => !meetsGradeFloor(repo.grade, floor)).map((r) => r.grade);
+}
+
+/**
+ * Gathers the rule results for one repository.
+ *
+ * Injected so the command can be tested without a network, and so Phase 2 can drop
+ * the real GitHub-backed implementation in without touching this file.
+ */
+export type Assessor = (repo: string, options: CliOptions) => Promise<RepoAssessment>;
+
+const notImplemented: Assessor = async (repo) => {
+  throw new Error(
+    `cannot assess ${repo}: the GitHub fetch layer is not implemented yet (Phase 2). ` +
+      `The scoring engine is usable today via the @fettle/core library.`,
+  );
+};
+
+export interface RunOptions {
+  argv: readonly string[];
+  env?: Readonly<Record<string, string | undefined>>;
+  stdout: (chunk: string) => void;
+  stderr: (chunk: string) => void;
+  assess?: Assessor;
+  now?: Date;
+}
+
+/** Runs the command and returns its exit code. Never throws for expected failures. */
+export async function run(options: RunOptions): Promise<number> {
+  const { stdout, stderr } = options;
+
+  let cli: CliOptions;
+  try {
+    cli = parseCliOptions(options.argv, options.env ?? {});
+  } catch (error) {
+    if (!(error instanceof UsageError)) throw error;
+    stderr(`${TOOL_NAME}: ${error.message}\n\n${USAGE}\n`);
+    return EXIT_USAGE;
+  }
+
+  if (cli.help) {
+    stdout(`${USAGE}\n`);
+    return EXIT_OK;
+  }
+
+  if (cli.version) {
+    stdout(`${TOOL_NAME} ${TOOL_VERSION}\n`);
+    return EXIT_OK;
+  }
+
+  const assess = options.assess ?? notImplemented;
+
+  let assessments;
+  try {
+    assessments = await Promise.all(cli.repos.map((repo) => assess(repo, cli)));
+  } catch (error) {
+    stderr(`${TOOL_NAME}: ${error instanceof Error ? error.message : String(error)}\n`);
+    return EXIT_USAGE;
+  }
+
+  const report = buildHealthReport(assessments, options.now);
+  stdout(`${render(report, cli.format)}\n`);
+
+  if (cli.failBelow === undefined) return EXIT_OK;
+
+  const failures = belowFloor(report, cli.failBelow);
+  if (failures.length === 0) return EXIT_OK;
+
+  stderr(
+    `${TOOL_NAME}: ${failures.length} repository/repositories graded below ${cli.failBelow} ` +
+      `(${failures.join(', ')})\n`,
+  );
+  return EXIT_BELOW_FLOOR;
 }

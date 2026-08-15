@@ -1,101 +1,37 @@
-import type {
-  BranchProtectionInfo,
-  RepoContext,
-  RuleResult,
-  RuleThresholdConfig,
-} from '../types.js';
+import { fail, notApplicable, pass } from './result.js';
+import type { BooleanRuleSettings, RepoContext, Rule, RuleResult } from '../types.js';
 
-function thresholdScore(value: number, goodAt: number, badAt: number): number {
-  if (value <= goodAt) {
-    return 100;
-  }
+/** Does the default branch have a protection rule or ruleset? */
+export const branchProtectionRule: Rule<'branch_protection'> = {
+  id: 'branch_protection',
+  kind: 'boolean',
 
-  if (value >= badAt) {
-    return 0;
-  }
+  evaluate(ctx: RepoContext, settings: BooleanRuleSettings): RuleResult {
+    const probe = ctx.branchProtection;
 
-  return Number(((100 * (badAt - value)) / (badAt - goodAt)).toFixed(1));
-}
+    // Reading protection requires administration:read, which the default
+    // GITHUB_TOKEN lacks. The fetcher phrases the unlock instructions.
+    if (!probe.available) {
+      return notApplicable('branch_protection', settings, probe);
+    }
 
-export function evaluateBranchProtectionRule(
-  ctx: RepoContext,
-  config: RuleThresholdConfig = {},
-): RuleResult {
-  const branchProtection: BranchProtectionInfo | undefined = ctx.branchProtection;
-  const weight = config.weight ?? 3;
+    const { protected: isProtected, source, description } = probe.value;
 
-  if (config.enabled === false) {
-    return {
-      id: 'branch_protection',
-      status: 'disabled',
-      score: null,
-      weight,
-      evidence: 'branch protection check disabled by policy',
-      details: { enabled: false },
-    };
-  }
+    if (isProtected) {
+      return pass(
+        'branch_protection',
+        settings,
+        `Default branch '${ctx.defaultBranch}' is protected: ${description}.`,
+        { source },
+      );
+    }
 
-  if (branchProtection?.permissionDenied) {
-    return {
-      id: 'branch_protection',
-      status: 'na',
-      score: null,
-      weight,
-      evidence:
-        'token lacks administration:read; grant it or supply a PAT/App token to unlock this check',
-      details: { source: branchProtection.source ?? 'unknown' },
-    };
-  }
-
-  if (branchProtection?.enabled) {
-    return {
-      id: 'branch_protection',
-      status: 'pass',
-      score: 100,
-      weight,
-      evidence: `Default branch '${ctx.defaultBranch}' is protected via ${branchProtection.source ?? 'ruleset'}`,
-      details: { source: branchProtection.source ?? 'ruleset' },
-    };
-  }
-
-  return {
-    id: 'branch_protection',
-    status: 'fail',
-    score: 0,
-    weight,
-    evidence: `No branch protection or ruleset detected on the default branch '${ctx.defaultBranch}'`,
-    details: { source: 'none' },
-  };
-}
-
-export function evaluateThresholdRule(
-  id: 'open_pr_count' | 'stale_prs',
-  value: number,
-  config: RuleThresholdConfig,
-  label: string,
-): RuleResult {
-  const weight = config.weight ?? 1;
-  const goodAt = config.good_at ?? 0;
-  const badAt = config.bad_at ?? goodAt + 1;
-
-  if (config.enabled === false) {
-    return {
-      id,
-      status: 'disabled',
-      score: null,
-      weight,
-      evidence: `${label} check disabled by policy`,
-      details: { enabled: false },
-    };
-  }
-
-  const score = thresholdScore(value, goodAt, badAt);
-  return {
-    id,
-    status: score >= 100 ? 'pass' : score <= 0 ? 'fail' : 'fail',
-    score,
-    weight,
-    evidence: `${label} is ${value} and scores ${score.toFixed(1)}`,
-    details: { rawValue: value, good_at: goodAt, bad_at: badAt },
-  };
-}
+    return fail(
+      'branch_protection',
+      settings,
+      `Default branch '${ctx.defaultBranch}' has no ruleset or branch protection rule. ` +
+        `Add one in Settings → Rules so changes cannot bypass review.`,
+      { source },
+    );
+  },
+};

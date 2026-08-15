@@ -1,23 +1,36 @@
 import { describe, expect, it } from 'vitest';
-import { resolveApiBaseUrl } from '../src/github/client.js';
+import { GITHUB_COM_API_URL, resolveApiBaseUrl } from '../src/github/client.js';
 
-describe('GitHub API base URL resolution', () => {
-  it('uses the env override when provided', () => {
-    expect(resolveApiBaseUrl({ GITHUB_API_URL: 'https://ghe.example.com/api/v3' })).toBe(
-      'https://ghe.example.com/api/v3',
+describe('resolveApiBaseUrl', () => {
+  it('defaults to github.com when nothing is configured', () => {
+    expect(resolveApiBaseUrl({})).toBe(GITHUB_COM_API_URL);
+  });
+
+  it('uses GITHUB_API_URL, which Actions runners set on github.com and GHES alike', () => {
+    expect(resolveApiBaseUrl({ GITHUB_API_URL: 'https://ghes.example.com/api/v3' })).toBe(
+      'https://ghes.example.com/api/v3',
     );
   });
 
-  it('falls back to github.com when env is unset', () => {
-    expect(resolveApiBaseUrl({})).toBe('https://api.github.com');
-  });
-
-  it('prefers the explicit CLI override over the environment', () => {
+  it('lets an explicit override win over the environment', () => {
     expect(
       resolveApiBaseUrl(
-        { GITHUB_API_URL: 'https://ghe.example.com/api/v3' },
-        'https://cli.example.com/api/v3',
+        { GITHUB_API_URL: 'https://ghes.example.com/api/v3' },
+        'https://other/api/v3',
       ),
-    ).toBe('https://cli.example.com/api/v3');
+    ).toBe('https://other/api/v3');
+  });
+
+  it('ignores blank values rather than producing an unusable base URL', () => {
+    expect(resolveApiBaseUrl({ GITHUB_API_URL: '   ' })).toBe(GITHUB_COM_API_URL);
+    expect(resolveApiBaseUrl({ GITHUB_API_URL: 'https://ghes.example.com/api/v3' }, '  ')).toBe(
+      'https://ghes.example.com/api/v3',
+    );
+  });
+
+  it('strips trailing slashes so path joining stays predictable', () => {
+    expect(resolveApiBaseUrl({}, 'https://ghes.example.com/api/v3/')).toBe(
+      'https://ghes.example.com/api/v3',
+    );
   });
 });

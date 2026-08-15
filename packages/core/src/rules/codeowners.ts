@@ -1,44 +1,37 @@
-import type { RepoContext, RuleResult, RuleThresholdConfig } from '../types.js';
+import { fail, notApplicable, pass } from './result.js';
+import type { BooleanRuleSettings, RepoContext, Rule, RuleResult } from '../types.js';
 
-const standardCodeownersLocations = ['.github/CODEOWNERS', 'CODEOWNERS', 'docs/CODEOWNERS'];
+/** Locations GitHub honours, in the order it resolves them. */
+export const CODEOWNERS_LOCATIONS = [
+  '.github/CODEOWNERS',
+  'CODEOWNERS',
+  'docs/CODEOWNERS',
+] as const;
 
-export function evaluateCodeownersRule(
-  ctx: RepoContext,
-  config: RuleThresholdConfig = {},
-): RuleResult {
-  const weight = config.weight ?? 1;
-  const files = ctx.files ?? [];
+/** Does a CODEOWNERS file exist in a standard location? */
+export const codeownersRule: Rule<'codeowners'> = {
+  id: 'codeowners',
+  kind: 'boolean',
 
-  if (config.enabled === false) {
-    return {
-      id: 'codeowners',
-      status: 'disabled',
-      score: null,
-      weight,
-      evidence: 'CODEOWNERS check disabled by policy',
-      details: { enabled: false },
-    };
-  }
+  evaluate(ctx: RepoContext, settings: BooleanRuleSettings): RuleResult {
+    const probe = ctx.existingPaths;
 
-  const found = standardCodeownersLocations.some((location) => files.includes(location));
+    if (!probe.available) {
+      return notApplicable('codeowners', settings, probe);
+    }
 
-  if (found) {
-    return {
-      id: 'codeowners',
-      status: 'pass',
-      score: 100,
-      weight,
-      evidence: 'CODEOWNERS file found in a standard location',
-      details: { locations: standardCodeownersLocations },
-    };
-  }
+    const found = CODEOWNERS_LOCATIONS.find((location) => probe.value.includes(location));
 
-  return {
-    id: 'codeowners',
-    status: 'fail',
-    score: 0,
-    weight,
-    evidence: 'No CODEOWNERS file found in a standard location',
-    details: { checkedLocations: standardCodeownersLocations },
-  };
-}
+    if (found !== undefined) {
+      return pass('codeowners', settings, `CODEOWNERS found at ${found}.`, { path: found });
+    }
+
+    return fail(
+      'codeowners',
+      settings,
+      `No CODEOWNERS file at any of ${CODEOWNERS_LOCATIONS.join(', ')}. ` +
+        `Adding one routes reviews to the people who own each path.`,
+      { checkedPaths: [...CODEOWNERS_LOCATIONS] },
+    );
+  },
+};

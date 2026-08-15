@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 
-import { main } from './cli.js';
+import { run } from './cli.js';
 
-void main().then((exitCode) => {
-  process.exitCode = exitCode;
+process.exitCode = await run({
+  argv: process.argv.slice(2),
+  env: process.env,
+  stdout: (chunk) => process.stdout.write(chunk),
+  stderr: (chunk) => process.stderr.write(chunk),
 });
