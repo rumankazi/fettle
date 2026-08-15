@@ -1,8 +1,9 @@
 # CLAUDE.md — Agent Operating Instructions
 
-You are implementing **Fettle**: a public GitHub Action, CLI, and library that
-grades the maintenance health of one or more GitHub repositories and emits a
-versioned JSON report plus a letter grade.
+**Fettle** is a public GitHub Action, CLI, and library that grades the maintenance
+health of one or more GitHub repositories and emits a versioned JSON report plus a
+letter grade. It is released and published; v1.0.0 onward the report schema is a
+contract.
 
 Read these documents in order before writing any code:
 
@@ -10,10 +11,13 @@ Read these documents in order before writing any code:
 2. `ARCHITECTURE.md` — package layout, data flow, API strategy, GHES support.
 3. `SCORING.md` — the exact scoring math, config schema, and report schema. This file
    is normative: implement it exactly, do not improvise.
-4. `TASKS.md` — the phased implementation plan. All six phases have shipped; it is
-   kept for the post-v1 backlog and as the record of what was built when.
-5. `DECISIONS.md` — every deviation from the above and why. Read before concluding
-   that something contradicts the spec; it probably does, deliberately.
+4. `DECISIONS.md` — every deviation from the above, and why. Read it before
+   concluding that something contradicts the spec; it probably does, deliberately.
+5. `CONTRIBUTING.md` — how to add a rule, the release process, and the repository
+   settings the workflows depend on.
+
+The product shipped v1.0.0. The phased build plan that got it there is gone; what
+remains is documented behaviour, and `SPEC.md` holds the post-v1 backlog.
 
 ## Project invariants (never violate these)
 

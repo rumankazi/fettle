@@ -72,6 +72,16 @@ json`.
   repo, a bare repo, and a repo scanned with a default token lacking admin read.
 - Report JSON validates against the published schema; schema documented in README.
 
+## Post-v1 backlog
+
+Deliberately not built for v1, and each still a product decision rather than a
+scheduled task: a key-CI-freshness rule, a deployment-recency rule, org-wide
+repository discovery, a trend-diffing helper, GitLab support, and plus/minus grades.
+
+Note the cost of the first two: a rule that is **enabled by default changes the
+grade of repositories that did not change**, so it is a breaking change and needs a
+major release. Ship a new rule disabled by default, or batch several into one major.
+
 ## Non-goals for v1
 
 Hosted API/SaaS, historical trend storage (consumers can diff their own artifacts),
