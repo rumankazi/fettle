@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.0](https://github.com/rumankazi/fettle/compare/v1.0.1...v2.0.0) (2026-08-15)
+
+
+### ⚠ BREAKING CHANGES
+
+* **action:** publish the Action from the repository root ([#15](https://github.com/rumankazi/fettle/issues/15))
+
+### Features
+
+* **action:** publish the Action from the repository root ([#15](https://github.com/rumankazi/fettle/issues/15)) ([2544cda](https://github.com/rumankazi/fettle/commit/2544cda6cc5d0f27c6aa9a6336280e36669ca6de))
+
 ## [1.0.1](https://github.com/rumankazi/fettle/compare/v1.0.0...v1.0.1) (2026-08-15)
 
 
