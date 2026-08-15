@@ -216,11 +216,29 @@ export function resolveConfig(input?: ConfigInput | null): ConfigResolution {
 }
 
 /**
+ * Whether a file carries no configuration at all.
+ *
+ * Checked before parsing rather than after, because the two answer differently:
+ * js-yaml 4 returns `undefined` for an empty document, js-yaml 5 throws. An empty
+ * or comment-only file is a valid way to say "use the defaults" either way, and
+ * deciding that ourselves keeps the behaviour the same across both.
+ */
+function hasNoDocument(yamlText: string): boolean {
+  return yamlText
+    .split('\n')
+    .every((line) => line.trim() === '' || line.trimStart().startsWith('#'));
+}
+
+/**
  * Parses `.fettle.yml` text and resolves it against the defaults.
  *
  * @throws {ConfigError} on malformed YAML or invalid settings.
  */
 export function parseConfig(yamlText: string, source = CONFIG_FILENAME): ConfigResolution {
+  if (hasNoDocument(yamlText)) {
+    return { config: structuredClone(defaultConfig), warnings: [] };
+  }
+
   let parsed: unknown;
 
   try {
@@ -230,7 +248,7 @@ export function parseConfig(yamlText: string, source = CONFIG_FILENAME): ConfigR
     throw new ConfigError(`${source} is not valid YAML: ${detail}`, '');
   }
 
-  // An empty or comment-only file is a valid way to say "use the defaults".
+  // Some documents still parse to nothing — `---` on its own, or an explicit null.
   if (parsed === null || parsed === undefined) {
     return { config: structuredClone(defaultConfig), warnings: [] };
   }
