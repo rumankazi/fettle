@@ -21,6 +21,12 @@
     "ghes"
   ],
   "type": "module",
+  "main": "./dist/cli.js",
+  "types": "./dist/cli.d.ts",
+  "exports": {
+    ".": "./dist/cli.js",
+    "./package.json": "./package.json"
+  },
   "bin": {
     "fettle": "./dist/index.js"
   },

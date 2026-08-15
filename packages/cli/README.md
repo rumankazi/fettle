@@ -17,5 +17,18 @@ fettle --repos acme/api --api-url https://ghe.acme.com/api/v3
 Exit codes: `0` success, `1` graded below `--fail-below`, `2` invalid usage, `3` a
 repository or its configuration could not be read.
 
+## Programmatic use
+
+The supported interface is the `fettle` command. The package also exports the pieces
+it is built from — `run`, `parseCliOptions`, `render`, and the exit codes — for
+wrapping the command in your own entry point:
+
+```ts
+import { run, EXIT_BELOW_FLOOR } from '@fettle/cli';
+```
+
+For scanning from code, use [`@fettle/core`](https://www.npmjs.com/package/@fettle/core)
+instead; it is the library, and this is a shell around it.
+
 Run `fettle --help` for all flags. Full documentation:
 [github.com/rumankazi/fettle](https://github.com/rumankazi/fettle).
