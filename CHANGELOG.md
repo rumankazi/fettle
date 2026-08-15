@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/rumankazi/fettle/compare/v1.0.0...v1.0.1) (2026-08-15)
+
+
+### Documentation
+
+* bring the docs up to v1.0.0 and pin the schema contract ([#14](https://github.com/rumankazi/fettle/issues/14)) ([f1b8e7c](https://github.com/rumankazi/fettle/commit/f1b8e7cd251075642076d5152f655bb7e665ba40))
+
 ## [1.0.0](https://github.com/rumankazi/fettle/compare/v0.2.0...v1.0.0) (2026-08-15)
 
 
