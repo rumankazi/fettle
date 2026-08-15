@@ -6,6 +6,11 @@ name: Release
 #
 #   1. Merge normal pull requests to main. The squashed commit subject is the PR
 #      title, which `pr-title.yml` requires to be a Conventional Commit.
+#   1a. A GitHub App token is minted, if one is configured. This matters more than
+#      it looks: a pull request opened using the default GITHUB_TOKEN does not
+#      trigger `pull_request` workflows, so without an App the release pull request
+#      arrives with no checks on it at all — including the one that rebuilds the
+#      Action bundle. See CONTRIBUTING.md#tokens.
 #   2. This workflow opens or updates a release pull request titled
 #      "chore: release X.Y.Z". It works out X.Y.Z from the commits since the last
 #      release: `feat` bumps the minor, `fix` the patch, `!` or BREAKING CHANGE the
@@ -43,9 +48,27 @@ jobs:
       version: ${{ steps.release.outputs.version }}
 
     steps:
+      # A short-lived installation token, so the release pull request is authored by
+      # the App and therefore does trigger the checks that must run on it.
+      - uses: actions/create-github-app-token@v2
+        id: app-token
+        if: vars.FETTLE_APP_ID != ''
+        with:
+          app-id: ${{ vars.FETTLE_APP_ID }}
+          private-key: ${{ secrets.FETTLE_APP_PRIVATE_KEY }}
+
+      - name: Warn when running without an App token
+        if: vars.FETTLE_APP_ID == ''
+        run: |
+          echo "::warning::No FETTLE_APP_ID configured, so the release pull request is"
+          echo "authored by GITHUB_TOKEN and will not trigger any checks — including the"
+          echo "bundle rebuild in release-pr.yml. Push an empty commit to that branch to"
+          echo "wake them up, or configure the App. See CONTRIBUTING.md#tokens."
+
       - uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4.4.1
         id: release
         with:
+          token: ${{ steps.app-token.outputs.token || github.token }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 

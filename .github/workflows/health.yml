@@ -32,14 +32,22 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
 
+      # Optional. `branch_protection` is the heaviest rule and needs
+      # administration:read, which the default GITHUB_TOKEN does not have — without
+      # it the rule reports `na` and drops out of the score entirely. An App
+      # installation token is short-lived and scoped; see CONTRIBUTING.md#tokens.
+      - uses: actions/create-github-app-token@v2
+        id: app-token
+        if: vars.FETTLE_APP_ID != ''
+        with:
+          app-id: ${{ vars.FETTLE_APP_ID }}
+          private-key: ${{ secrets.FETTLE_APP_PRIVATE_KEY }}
+
       - name: Grade this repository
         id: health
         uses: ./packages/action
         with:
-          # `branch_protection` needs administration:read, which the default token
-          # does not have, so it reports `na` and the summary says so. Set a PAT in
-          # the FETTLE_TOKEN secret to unlock it.
-          token: ${{ secrets.FETTLE_TOKEN || github.token }}
+          token: ${{ steps.app-token.outputs.token || github.token }}
 
       - uses: actions/upload-artifact@v4
         with:

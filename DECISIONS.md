@@ -302,3 +302,25 @@ reason, and the publish job re-verifies at the tag.
 becomes the commit subject on `main`, which is release-please's only input. A title
 that is not a Conventional Commit is a change that ships in no release, which is why
 it is enforced rather than suggested.
+
+## D25 — The release automation runs on a GitHub App token
+
+`release.yml` mints a short-lived App installation token when `FETTLE_APP_ID` is
+configured, and falls back to `GITHUB_TOKEN` with a warning when it is not.
+
+**Why it is not optional in practice:** GitHub does not start a workflow run for
+events caused by `GITHUB_TOKEN`, to stop workflows triggering themselves. The
+release pull request that release-please opens is such an event, so with the default
+token it arrives with no checks on it at all — including `release-pr.yml`, the one
+that rebuilds the Action bundle for the new version. The release then fails at the
+publish step, which re-verifies the bundle. An App-authored pull request is a normal
+pull request and triggers everything.
+
+**Why an App rather than a personal access token:** the token lasts an hour, is
+scoped to the repositories the App is installed on, carries only the permissions
+granted to it, and is not tied to a person who might leave. A PAT is standing access
+on a renewal reminder.
+
+The fallback is kept so that a fresh clone of this repository works without any
+setup, degrading to a `na` on `branch_protection` and release pull requests that
+need a manual nudge, rather than failing outright.
