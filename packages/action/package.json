@@ -1,9 +1,16 @@
 {
   "name": "@fettle/action",
   "version": "0.1.0",
+  "description": "GitHub Action wrapper around the maintenance-health grading engine.",
+  "license": "MIT",
+  "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
-    "build": "tsc -p tsconfig.json && esbuild src/index.ts --bundle --platform=node --target=node20 --outfile=dist/index.js --format=cjs"
+    "build": "tsc -p tsconfig.json && esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --outfile=dist/index.js",
+    "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
     "@fettle/core": "workspace:*"

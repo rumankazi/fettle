@@ -3,11 +3,16 @@
   "private": true,
   "version": "0.1.0",
   "packageManager": "pnpm@9.15.4",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
-    "build": "pnpm -r --filter '@fettle/*' run build",
+    "build": "pnpm -r --filter './packages/*' run build",
+    "typecheck": "pnpm -r --filter './packages/*' run typecheck",
     "test": "vitest run",
-    "lint": "eslint . --ext .ts && prettier --check .",
-    "cli": "node packages/cli/dist/index.js"
+    "lint": "eslint . && prettier --check .",
+    "format": "prettier --write .",
+    "cli": "pnpm -r --filter '@fettle/cli...' run build && node packages/cli/dist/index.js"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

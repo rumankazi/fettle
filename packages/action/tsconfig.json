@@ -1,9 +1,13 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": "src",
-    "outDir": "dist",
-    "composite": true
+    "noEmit": true,
+    // Type-check against core's source so this package needs no prior build.
+    // The emitting build config resolves @fettle/core through node_modules to
+    // core's published declarations, which is what consumers will see.
+    "paths": {
+      "@fettle/core": ["../core/src/index.ts"]
+    }
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "test/**/*.ts"]
 }

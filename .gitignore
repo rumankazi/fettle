@@ -1,7 +1,13 @@
 node_modules
 .pnpm-store
 coverage
-dist
-packages/*/dist
 .vitest
 .DS_Store
+
+# Build output is generated, with one exception: the Action ships a bundled
+# dist/index.js committed to the repo so consumers never run an install.
+dist
+!packages/action/dist
+!packages/action/dist/index.js
+
+*.tsbuildinfo

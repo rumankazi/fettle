@@ -5,19 +5,43 @@ on:
     branches: ['**']
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: pnpm/action-setup@v4
         with:
           version: 9.15.4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm
+
       - run: pnpm install --frozen-lockfile
-      - run: pnpm build
-      - run: pnpm test
-      - run: pnpm lint
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Type-check (including tests)
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+      # Consumers run the committed bundle, never an install, so a stale dist ships
+      # code nobody reviewed. Rebuilding above and diffing here is the guard.
+      - name: Verify the committed Action bundle is up to date
+        run: |
+          if ! git diff --exit-code -- packages/action/dist; then
+            echo "::error::packages/action/dist is out of date. Run 'pnpm build' and commit the result."
+            exit 1
+          fi

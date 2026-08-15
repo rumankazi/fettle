@@ -1,6 +1,8 @@
 {
   "name": "@fettle/core",
   "version": "0.1.0",
+  "description": "Maintenance-health grading engine: rules, scoring, and report assembly.",
+  "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -8,12 +10,23 @@
     ".": "./dist/index.js",
     "./package.json": "./package.json"
   },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
     "@octokit/core": "^6.1.3",
-    "@octokit/plugin-retry": "^7.0.0",
-    "@octokit/plugin-throttling": "^8.0.0"
+    "@octokit/plugin-retry": "^7.1.2",
+    "@octokit/plugin-throttling": "^9.3.2",
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9"
   }
 }
