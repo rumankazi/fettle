@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/rumankazi/fettle/compare/v0.1.3...v0.1.4) (2026-08-15)
+
+
+### Documentation
+
+* record that npm token publishing is closing, and how to bootstrap ([ed470d7](https://github.com/rumankazi/fettle/commit/ed470d71ee28df428d593ad365b513e35f6d45f6))
+
 ## [0.1.3](https://github.com/rumankazi/fettle/compare/v0.1.2...v0.1.3) (2026-08-15)
 
 
