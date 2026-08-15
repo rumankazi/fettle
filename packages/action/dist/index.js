@@ -1696,7 +1696,7 @@ function evaluateRules(ctx, settings) {
 
 // ../core/src/branding.ts
 var TOOL_NAME = "fettle";
-var TOOL_VERSION = "2.0.1";
+var TOOL_VERSION = "2.0.2";
 var CONFIG_FILENAME = ".fettle.yml";
 var BADGE_LABEL = "repo health";
 var DEFAULT_OUTPUT_DIR = "fettle-report";
