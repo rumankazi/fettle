@@ -344,3 +344,26 @@ all) or `NPM_TOKEN` (a granular token), and skips with a warning when neither is
 set so the rest of a release still completes. Trusted publishing needs npm ≥ 11.5.1
 on Node ≥ 22.14.0, so the job switches to Node 24 just before publishing — every
 check above that point runs on Node 20, the version the packages support.
+
+## D27 — Renovate, not Dependabot
+
+Dependency updates are Renovate's job, configured in `renovate.json5`. Dependabot's
+version updates are switched off; its alerts stay on, because Renovate reads them to
+raise security updates.
+
+**Why one and not both:** they do the same job, so running both means two pull
+requests per update, two review queues, and a merge race. Both were briefly enabled
+here and Dependabot opened five pull requests while Renovate was still asking to be
+configured.
+
+**Why Renovate of the two:** three things it does that we wanted and Dependabot
+cannot. It auto-merges natively, so the "enable auto-merge" workflow — which needed
+an App token, because Dependabot-triggered workflows get a read-only one — is
+deleted rather than maintained. It maintains commit-SHA pins for GitHub Actions via
+`helpers:pinGitHubActionDigests`, which is the policy in D22 enforced rather than
+remembered. And `dependencyDashboardApproval` holds major bumps behind a tick on an
+issue, which matters here: the first week produced unannounced major bumps of two
+runtime dependencies that ship inside the Action bundle.
+
+The config is `.json5` so it can carry its reasoning inline — and, pleasingly, the
+`dependency_updates` rule already looks for that filename.

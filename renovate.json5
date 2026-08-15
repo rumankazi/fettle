@@ -1,0 +1,89 @@
+{
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+
+  // JSON5 so this file can explain itself. Renovate reads .json5 natively, and so
+  // does the `dependency_updates` rule, which is a pleasing bit of dogfooding.
+  extends: [
+    'config:recommended',
+    ':dependencyDashboard',
+    // Titles must be Conventional Commits: merges are squashes, so the pull request
+    // title becomes the commit subject on main, which is release-please's only
+    // input. Renovate produces `chore(deps): ...`, which release-please correctly
+    // treats as no release on its own.
+    ':semanticCommits',
+    // Third-party actions get pinned to a commit SHA and kept fresh. We pinned
+    // pnpm/action-setup by hand; from here Renovate maintains every digest.
+    'helpers:pinGitHubActionDigests',
+  ],
+
+  timezone: 'Etc/UTC',
+  schedule: ['before 09:00 on monday'],
+  prConcurrentLimit: 5,
+  rebaseWhen: 'behind-base-branch',
+
+  // Uses GitHub's own auto-merge, so nothing merges until the required checks pass.
+  // Without branch protection on main there are no required checks and this would
+  // merge immediately — see CONTRIBUTING.md#repository-settings.
+  platformAutomerge: true,
+
+  lockFileMaintenance: {
+    enabled: true,
+    schedule: ['before 09:00 on the first day of the month'],
+  },
+
+  // Renovate reads GitHub's Dependabot alerts for this. Dependabot's *version
+  // updates* are gone; its *alerts* must stay enabled or this does nothing.
+  vulnerabilityAlerts: {
+    labels: ['security'],
+    automerge: false,
+    schedule: null, // security fixes do not wait for Monday
+  },
+
+  packageRules: [
+    {
+      description: 'Octokit is one library in several packages; move it as a set.',
+      matchPackageNames: ['@octokit/**'],
+      groupName: 'octokit',
+    },
+    {
+      description: 'Build and test tooling, grouped so a routine week is one review.',
+      matchPackageNames: [
+        'typescript',
+        'vitest',
+        'vite',
+        'esbuild',
+        'prettier',
+        'eslint',
+        '@eslint/**',
+        '@typescript-eslint/**',
+        'eslint-config-prettier',
+        '@types/**',
+      ],
+      groupName: 'dev tooling',
+    },
+    {
+      description: 'Automerge routine development updates: nothing here is published or bundled into the Action, so it cannot reach a consumer.',
+      matchDepTypes: ['devDependencies'],
+      matchUpdateTypes: ['patch', 'minor', 'pin', 'digest'],
+      automerge: true,
+    },
+    {
+      description: 'Runtime dependencies ship to consumers inside the committed Action bundle, so every one gets read by a person. See the dependency budget in CONTRIBUTING.md.',
+      matchDepTypes: ['dependencies'],
+      automerge: false,
+      addLabels: ['runtime-dependency'],
+    },
+    {
+      description: 'Workflow actions: automerge the routine moves, review the majors.',
+      matchManagers: ['github-actions'],
+      matchUpdateTypes: ['patch', 'minor', 'digest', 'pin'],
+      automerge: true,
+    },
+    {
+      description: 'Major bumps wait for someone to ask for them on the dependency dashboard, rather than arriving unannounced.',
+      matchUpdateTypes: ['major'],
+      dependencyDashboardApproval: true,
+      automerge: false,
+    },
+  ],
+}
