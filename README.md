@@ -60,7 +60,7 @@ jobs:
   health:
     runs-on: ubuntu-latest
     steps:
-      - uses: acme/fettle/packages/action@v1
+      - uses: rumankazi/fettle@v1
         id: health
         with:
           fail-below: C # optional gate
