@@ -97,23 +97,36 @@ so retention stays your choice.
 
 ### Badges
 
-The Action writes `<output-dir>/badge/<org>__<repo>.json` in shields.io's
-[endpoint format](https://shields.io/badges/endpoint-badge). shields.io has to be
-able to fetch it over HTTP, so it needs publishing somewhere — a workflow artifact
-is not enough.
+The Action writes two badges per repository into `<output-dir>/badge/`:
 
-This repository does it by pushing that file to an orphan `badges` branch; see
-[`.github/workflows/health.yml`](.github/workflows/health.yml) for a copy-pasteable
-version. Keeping it off `main` means a grade that changes on its own does not churn
-your history or re-run your checks.
+| File               | What it is                                                                |
+| ------------------ | ------------------------------------------------------------------------- |
+| `OWNER__REPO.svg`  | the finished badge, self-contained                                        |
+| `OWNER__REPO.json` | a [shields.io endpoint](https://shields.io/badges/endpoint-badge) payload |
 
-Then point shields.io at the raw URL:
+**Use the SVG unless you have a reason not to.** Commit it and point at it with a
+relative path:
+
+```markdown
+![repo health](.github/badges/OWNER__REPO.svg)
+```
+
+That renders on a private repository, on GitHub Enterprise Server, and behind a
+corporate proxy, because nothing external is fetched when someone views your README.
+
+The shields.io payload is the alternative, and it has a real limitation worth
+knowing before you pick it: **shields.io fetches the file itself**, so the URL must
+be reachable from the public internet. That rules out private repositories, and
+GHES entirely. Where it does apply, publish the JSON somewhere raw — this repository
+pushes it to an orphan `badges` branch, see
+[`.github/workflows/health.yml`](.github/workflows/health.yml) — and reference it:
 
 ```
 https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/OWNER/REPO/badges/OWNER__REPO.json
 ```
 
-GitHub Pages or a gist work just as well if you already publish somewhere.
+Either way, keep the badge off `main` or commit it from the same workflow that
+produces it; a grade that changes on its own should not churn your history.
 
 ## Quick start: the CLI
 

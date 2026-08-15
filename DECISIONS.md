@@ -391,3 +391,23 @@ easy option, because it is not.
 **The consequence:** the first version of each package has to be published by hand,
 since a trusted publisher can only be configured on a package that exists. That one
 version lacks provenance. Everything after it is signed by the release workflow.
+
+## D29 — The Action emits an SVG badge, not only a shields.io payload
+
+`<output-dir>/badge/<repo>.svg` is written alongside the shields endpoint JSON, and
+the README recommends the SVG.
+
+**Why:** the shields.io route only works for public repositories on github.com.
+shields fetches the endpoint file server-side, so a private repository's raw URL
+gives it a 404 and a GitHub Enterprise Server host is not reachable from it at all
+— which is precisely the environment `SPEC.md` aims this tool at. Documenting a
+badge that cannot work for most of our users is worse than documenting none.
+
+It also sat badly beside the invariant that no data leaves the user's environment.
+The tool itself never phones home, but recommending a shields endpoint means every
+reader of that README hands a third party the repository's name and grade.
+
+The SVG is about sixty lines and one approximation: text width is estimated rather
+than measured against real font metrics, because the alternative is shipping a
+metrics table to place eleven characters. Being a pixel out moves text within its
+box; it does not break the badge.

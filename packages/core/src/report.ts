@@ -4,26 +4,20 @@
  * (SCORING.md §6).
  */
 
-import { BADGE_LABEL, TOOL_NAME, TOOL_VERSION } from './branding.js';
+import { TOOL_NAME, TOOL_VERSION } from './branding.js';
 import { aggregateRepoScore, gradeFromScore } from './scoring.js';
-import type {
-  BadgePayload,
-  FleetSummary,
-  Grade,
-  HealthReport,
-  RepoReport,
-  RuleResult,
-} from './types.js';
+import type { FleetSummary, Grade, HealthReport, RepoReport, RuleResult } from './types.js';
 
-/** Badge colours per SCORING.md §6. */
-const GRADE_COLORS: Record<Grade, string> = {
-  A: 'brightgreen',
-  B: 'green',
-  C: 'yellow',
-  D: 'orange',
-  F: 'red',
-  'N/A': 'lightgrey',
-};
+// Badge rendering lives in badge.ts; re-exported here because this is where callers
+// have always looked for it.
+export {
+  badgeBasename,
+  badgeColor,
+  badgeFilename,
+  badgeSvgFilename,
+  buildBadgePayload,
+  renderBadgeSvg,
+} from './badge.js';
 
 export interface RepoAssessment {
   repo: string;
@@ -68,20 +62,6 @@ export function buildHealthReport(
     repos,
     fleet: buildFleetSummary(repos),
   };
-}
-
-export function buildBadgePayload(repo: RepoReport): BadgePayload {
-  return {
-    schemaVersion: 1,
-    label: BADGE_LABEL,
-    message: repo.score === null ? repo.grade : `${repo.grade} (${repo.score.toFixed(1)})`,
-    color: GRADE_COLORS[repo.grade],
-  };
-}
-
-/** Filename-safe badge path for `org/name`, e.g. `badge/org__name.json`. */
-export function badgeFilename(repo: string): string {
-  return `${repo.replace(/[^A-Za-z0-9._-]+/g, '__')}.json`;
 }
 
 /**

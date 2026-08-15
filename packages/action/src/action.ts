@@ -9,12 +9,14 @@
 import {
   assess,
   badgeFilename,
+  badgeSvgFilename,
   buildBadgePayload,
   CONFIG_FILENAME,
   DEFAULT_OUTPUT_DIR,
   gradeFromScore,
   isFloorGrade,
   meetsGradeFloor,
+  renderBadgeSvg,
   renderMarkdown,
   TOOL_NAME,
   type AssessOptions,
@@ -104,7 +106,12 @@ function join(...segments: string[]): string {
 }
 
 /**
- * Writes the report and one shields.io badge payload per repository.
+ * Writes the report, and two badges per repository.
+ *
+ * The SVG is the one most people want: commit it and reference it by relative path
+ * and it renders on a private repository and on GitHub Enterprise Server, with no
+ * third party fetching anything. The shields.io payload is for public repositories
+ * that would rather let shields draw it.
  *
  * The Action deliberately does not upload these as artifacts — that is
  * `actions/upload-artifact`'s job, and pairing with it keeps our dependency
@@ -119,9 +126,14 @@ async function writeReportFiles(
   await runtime.writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`);
 
   for (const repo of report.repos) {
+    const payload = buildBadgePayload(repo);
     await runtime.writeFile(
       join(outputDir, 'badge', badgeFilename(repo.repo)),
-      `${JSON.stringify(buildBadgePayload(repo), null, 2)}\n`,
+      `${JSON.stringify(payload, null, 2)}\n`,
+    );
+    await runtime.writeFile(
+      join(outputDir, 'badge', badgeSvgFilename(repo.repo)),
+      renderBadgeSvg(payload),
     );
   }
 

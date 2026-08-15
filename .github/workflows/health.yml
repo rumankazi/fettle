@@ -105,8 +105,8 @@ jobs:
             git checkout -q --orphan badges
           fi
 
-          rm -f ./*.json
-          cp "$GITHUB_WORKSPACE"/fettle-report/badge/*.json .
+          rm -f ./*.json ./*.svg
+          cp "$GITHUB_WORKSPACE"/fettle-report/badge/* .
 
           cat > README.md <<'NOTE'
           # badges

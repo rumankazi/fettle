@@ -21490,7 +21490,7 @@ var CONFIG_FILENAME = ".fettle.yml";
 var BADGE_LABEL = "repo health";
 var DEFAULT_OUTPUT_DIR = "fettle-report";
 
-// ../core/src/report.ts
+// ../core/src/badge.ts
 var GRADE_COLORS = {
   A: "brightgreen",
   B: "green",
@@ -21499,6 +21499,82 @@ var GRADE_COLORS = {
   F: "red",
   "N/A": "lightgrey"
 };
+var COLOR_HEX = {
+  brightgreen: "#4c1",
+  green: "#97ca00",
+  yellow: "#dfb317",
+  orange: "#fe7d37",
+  red: "#e05d44",
+  lightgrey: "#9f9f9f"
+};
+function badgeColor(grade) {
+  return GRADE_COLORS[grade];
+}
+function buildBadgePayload(repo) {
+  return {
+    schemaVersion: 1,
+    label: BADGE_LABEL,
+    message: repo.score === null ? repo.grade : `${repo.grade} (${repo.score.toFixed(1)})`,
+    color: badgeColor(repo.grade)
+  };
+}
+function textWidth(text) {
+  let width = 0;
+  for (const character of text) {
+    if (/[A-Z]/.test(character)) width += 8;
+    else if (/[a-z]/.test(character)) width += 6.5;
+    else if (/[0-9]/.test(character)) width += 7;
+    else if (/[ .()/]/.test(character)) width += 3.8;
+    else width += 6.5;
+  }
+  return Math.ceil(width);
+}
+function escapeXml(text) {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+}
+function renderBadgeSvg(payload) {
+  const label = escapeXml(payload.label);
+  const message2 = escapeXml(payload.message);
+  const padding = 10;
+  const labelWidth = textWidth(payload.label) + padding * 2;
+  const messageWidth = textWidth(payload.message) + padding * 2;
+  const width = labelWidth + messageWidth;
+  const fill = COLOR_HEX[payload.color] ?? payload.color;
+  const labelMid = labelWidth / 2 * 10;
+  const messageMid = (labelWidth + messageWidth / 2) * 10;
+  const accessibleName = `${label}: ${message2}`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="20" role="img" aria-label="${accessibleName}">
+  <title>${accessibleName}</title>
+  <linearGradient id="s" x2="0" y2="100%">
+    <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
+    <stop offset="1" stop-opacity=".1"/>
+  </linearGradient>
+  <clipPath id="r"><rect width="${width}" height="20" rx="3" fill="#fff"/></clipPath>
+  <g clip-path="url(#r)">
+    <rect width="${labelWidth}" height="20" fill="#555"/>
+    <rect x="${labelWidth}" width="${messageWidth}" height="20" fill="${fill}"/>
+    <rect width="${width}" height="20" fill="url(#s)"/>
+  </g>
+  <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" text-rendering="geometricPrecision" font-size="110">
+    <text aria-hidden="true" x="${labelMid}" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength="${(labelWidth - padding * 2) * 10}">${label}</text>
+    <text x="${labelMid}" y="140" transform="scale(.1)" textLength="${(labelWidth - padding * 2) * 10}">${label}</text>
+    <text aria-hidden="true" x="${messageMid}" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength="${(messageWidth - padding * 2) * 10}">${message2}</text>
+    <text x="${messageMid}" y="140" transform="scale(.1)" textLength="${(messageWidth - padding * 2) * 10}">${message2}</text>
+  </g>
+</svg>
+`;
+}
+function badgeBasename(repo) {
+  return repo.replace(/[^A-Za-z0-9._-]+/g, "__");
+}
+function badgeFilename(repo) {
+  return `${badgeBasename(repo)}.json`;
+}
+function badgeSvgFilename(repo) {
+  return `${badgeBasename(repo)}.svg`;
+}
+
+// ../core/src/report.ts
 function buildRepoReport({ repo, defaultBranch, rules }) {
   const score = aggregateRepoScore(rules);
   return { repo, defaultBranch, score, grade: gradeFromScore(score), rules };
@@ -21524,17 +21600,6 @@ function buildHealthReport(assessments, generatedAt = /* @__PURE__ */ new Date()
     repos,
     fleet: buildFleetSummary(repos)
   };
-}
-function buildBadgePayload(repo) {
-  return {
-    schemaVersion: 1,
-    label: BADGE_LABEL,
-    message: repo.score === null ? repo.grade : `${repo.grade} (${repo.score.toFixed(1)})`,
-    color: GRADE_COLORS[repo.grade]
-  };
-}
-function badgeFilename(repo) {
-  return `${repo.replace(/[^A-Za-z0-9._-]+/g, "__")}.json`;
 }
 function escapeMarkdown(value) {
   return value.replace(/\s*[\r\n]+\s*/g, " ").replace(/\|/g, "\\|");
@@ -26466,10 +26531,15 @@ async function writeReportFiles(runtime, report, outputDir) {
   await runtime.writeFile(reportPath, `${JSON.stringify(report, null, 2)}
 `);
   for (const repo of report.repos) {
+    const payload = buildBadgePayload(repo);
     await runtime.writeFile(
       join(outputDir, "badge", badgeFilename(repo.repo)),
-      `${JSON.stringify(buildBadgePayload(repo), null, 2)}
+      `${JSON.stringify(payload, null, 2)}
 `
+    );
+    await runtime.writeFile(
+      join(outputDir, "badge", badgeSvgFilename(repo.repo)),
+      renderBadgeSvg(payload)
     );
   }
   return reportPath;

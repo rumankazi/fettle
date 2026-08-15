@@ -163,6 +163,17 @@ describe('runAction', () => {
     expect(runtime.files['fettle-report/badge/acme__other.json']).toBeDefined();
   });
 
+  it('writes a self-contained SVG too, for repositories shields.io cannot reach', async () => {
+    const runtime = await run({ repos: 'acme/demo' });
+    const svg = runtime.files['fettle-report/badge/acme__demo.svg'];
+
+    expect(svg).toBeDefined();
+    expect(svg).toContain('<svg');
+    expect(svg).toContain('repo health');
+    // Nothing to fetch: this has to render on a private repo and on GHES.
+    expect(svg).not.toMatch(/https?:\/\/(?!www\.w3\.org)/);
+  });
+
   it('honours a custom output directory', async () => {
     const runtime = await run({ repos: 'acme/demo', 'output-dir': 'out/health/' });
 

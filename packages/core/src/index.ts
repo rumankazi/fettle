@@ -47,8 +47,12 @@ export {
 } from './github/context.js';
 export { available, unavailable } from './probe.js';
 export {
+  badgeBasename,
+  badgeColor,
   badgeFilename,
+  badgeSvgFilename,
   buildBadgePayload,
+  renderBadgeSvg,
   buildFleetSummary,
   buildHealthReport,
   buildRepoReport,
