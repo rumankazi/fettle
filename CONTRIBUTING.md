@@ -131,31 +131,98 @@ about the other.
 
 ## Commits and pull requests
 
-- Small, reviewable commits. Message format: `phase-N: <what>` while the phased plan
-  in `TASKS.md` is running; plain imperative subjects afterwards.
+Pull requests are **squash-merged**, so the pull request title becomes the commit
+subject on `main` — and the release automation reads those subjects to decide the
+next version. The title must therefore be a
+[Conventional Commit](https://www.conventionalcommits.org/); CI checks it.
+
+| Title                                   | Effect on the next release |
+| --------------------------------------- | -------------------------- |
+| `feat: add a deployment-recency rule`   | minor bump                 |
+| `fix: stop treating a 403 as a failure` | patch bump                 |
+| `feat!: drop the v0 report schema`      | **major** bump             |
+| `docs: explain the grade floor`         | none                       |
+
+Types: `feat` `fix` `docs` `style` `refactor` `perf` `test` `build` `ci` `chore`
+`revert`. A scope is optional: `fix(cli): …`. A breaking change is `!` after the
+type, or a `BREAKING CHANGE:` footer in the body.
+
+Two changes are breaking whether or not they look it:
+
+- anything non-additive to `HealthReport`, which is a published contract;
+- **a new rule that is enabled by default**, because it changes the grade of
+  repositories that did not change. Ship it disabled, or take the major.
+
+Also:
+
 - Explain **why** in the body. The diff already says what.
 - `pnpm build && pnpm test && pnpm lint && pnpm typecheck` must pass. CI runs the
-  same, plus a rebuild of the Action bundle and a check that it still loads.
+  same, plus a rebuild of the Action bundle, a check that it still loads, and a live
+  scan of this repository with the build under review.
 - If you touched the Action, commit the rebuilt `packages/action/dist/index.js`.
 - Update `README.md` when behaviour changes. The Quick Start must always reflect
   reality.
 
 ## Releasing
 
-Maintainers only.
+**Nobody tags anything by hand, and nobody picks a version number.** Releases are
+driven by the commit history.
 
-1. Decide the version. The report schema is a public contract: a breaking change to
-   `HealthReport` needs a `schemaVersion` bump and a major. A new enabled-by-default
-   rule changes existing scores, so it is also a major.
-2. Update the version in `packages/*/package.json` and `TOOL_VERSION` in
-   `packages/core/src/branding.ts`. A test fails if these disagree.
-3. `pnpm build && pnpm test && pnpm lint && pnpm typecheck`, and commit the rebuilt
-   Action bundle.
-4. Tag `vX.Y.Z` and push it. The release workflow verifies everything again,
-   publishes `@fettle/core` and `@fettle/cli` to npm with provenance, moves the
-   floating `vX` tag that Action consumers pin to, and drafts a GitHub release.
-5. Check the floating tag moved: consumers write `uses: <owner>/fettle/packages/action@v1`.
+### The loop
 
-Publishing needs an `NPM_TOKEN` secret with publish rights to the `@fettle` scope.
-Until that exists, the publish step is skipped and the rest of the workflow still
-runs.
+1. Merge pull requests to `main` as normal. Their Conventional Commit titles are the
+   input.
+2. [release-please](https://github.com/googleapis/release-please) opens a pull
+   request titled **`chore: release X.Y.Z`** and keeps it up to date as more lands.
+   It works out `X.Y.Z` from the commits, writes `CHANGELOG.md`, and bumps the
+   version in all four places it lives: the root and three package manifests, plus
+   `TOOL_VERSION` in `branding.ts`.
+3. `release-pr.yml` rebuilds the committed Action bundle on that pull request — the
+   version is baked into it — and re-runs the full check suite afterwards, so what is
+   verified is what will merge.
+4. **Merging the release pull request is the release.** It tags `vX.Y.Z`, creates the
+   GitHub release from the changelog, publishes `@fettle/core` and `@fettle/cli` to
+   npm with provenance, and moves the floating `vX` tag that Action consumers pin to.
+
+The only human decision is _when_ to merge the release pull request. Never _what
+version_ — that is already decided by what was merged.
+
+### Reviewing a release pull request
+
+Read the changelog diff. If a change is in the wrong section or the version bump
+looks wrong, the fix is in the commit history, not the release pull request: the
+subject that produced it used the wrong type. Correct it with a follow-up commit
+using the right type, and release-please will recompute.
+
+### Forcing a specific version
+
+Add a footer to any commit on `main`:
+
+```
+Release-As: 1.0.0
+```
+
+That is how the first stable release is cut — see below.
+
+### The first release
+
+The repository starts at `0.1.0` with no tags. The next release is worked out from
+there: a `feat:` makes it `0.2.0`, a `fix:` makes it `0.1.1`. Nothing releases at
+all until at least one Conventional Commit lands on `main`, so the existing
+`phase-N:` history produces nothing.
+
+To go straight to `1.0.0`, land a commit whose body carries `Release-As: 1.0.0`.
+Do that when the report schema is one you are willing to keep, because after
+`v1.0.0` a change to it costs a major.
+
+### Prerequisites
+
+| Needed for                   | What                                                                                      |
+| ---------------------------- | ----------------------------------------------------------------------------------------- |
+| npm publishing               | an `NPM_TOKEN` secret with publish rights to the `@fettle` scope                          |
+| release-please opening PRs   | Settings → Actions → General → _Allow GitHub Actions to create and approve pull requests_ |
+| a review gate before publish | an Environment named `release`, optionally with required reviewers                        |
+
+Without `NPM_TOKEN` the release still happens — tag, GitHub release, floating major
+tag — and the publish step logs a warning instead. That is deliberate: it means the
+whole pipeline can be exercised before the npm scope exists.

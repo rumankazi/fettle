@@ -1,0 +1,66 @@
+name: Release pull request
+
+# The Action's version is baked into its committed bundle, so a version bump makes
+# that bundle stale. Release-please cannot rebuild it — it only edits text — so this
+# does, on the release pull request, before anyone merges it.
+#
+# CI skips its bundle-freshness check on these branches for the same reason. This
+# job replaces it, and runs the full check suite *after* the rebuild so what gets
+# verified is exactly what gets merged.
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: release-pr-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  rebuild-bundle:
+    name: Rebuild the Action bundle
+    if: startsWith(github.head_ref, 'release-please--')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # push the rebuilt bundle back to the release pull request
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+      - name: Commit the rebuilt bundle
+        run: |
+          if git diff --quiet -- packages/action/dist; then
+            echo "Bundle already current; nothing to commit."
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add packages/action/dist
+          git commit -m 'chore: rebuild the Action bundle for the release'
+          git push origin HEAD:"${GITHUB_HEAD_REF}"
+
+      # Run after the rebuild, so this verifies the tree that will actually merge.
+      # A push made with GITHUB_TOKEN does not start another workflow run, which is
+      # exactly why these checks live here rather than being left to CI.
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+
+      - name: Verify the bundle is now current
+        run: |
+          pnpm build
+          git diff --exit-code -- packages/action/dist

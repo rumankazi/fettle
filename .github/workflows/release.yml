@@ -1,17 +1,62 @@
 name: Release
 
+# Releases are driven by Conventional Commits, not by anyone remembering to tag.
+#
+# The flow, end to end:
+#
+#   1. Merge normal pull requests to main. The squashed commit subject is the PR
+#      title, which `pr-title.yml` requires to be a Conventional Commit.
+#   2. This workflow opens or updates a release pull request titled
+#      "chore: release X.Y.Z". It works out X.Y.Z from the commits since the last
+#      release: `feat` bumps the minor, `fix` the patch, `!` or BREAKING CHANGE the
+#      major. It writes CHANGELOG.md and bumps all four places the version lives.
+#   3. `release-pr.yml` rebuilds the committed Action bundle on that pull request,
+#      because the version is baked into it, and re-runs the full check suite.
+#   4. Merging the release pull request is the release. This workflow then tags it,
+#      creates the GitHub release, publishes to npm, and moves the floating major
+#      tag that Action consumers pin to.
+#
+# So: nothing is released until someone merges the release pull request, and the
+# only decision left to a human is when — never what version.
+
 on:
   push:
-    tags: ['v*']
+    branches: [main]
 
 permissions: {}
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
-  release:
+  release-please:
+    name: Prepare or publish a release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # tag, release, and push the release pull request branch
+      pull-requests: write
+    outputs:
+      released: ${{ steps.release.outputs.release_created }}
+      tag: ${{ steps.release.outputs.tag_name }}
+      major: ${{ steps.release.outputs.major }}
+      version: ${{ steps.release.outputs.version }}
+
+    steps:
+      - uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4.4.1
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  publish:
+    name: Publish ${{ needs.release-please.outputs.tag }}
+    needs: release-please
+    if: needs.release-please.outputs.released == 'true'
     runs-on: ubuntu-latest
     environment: release
     permissions:
-      contents: write # move the floating major tag, create the release
+      contents: write # move the floating major tag
       id-token: write # npm provenance
 
     # Lifted to the job so the publish step can test for it: the `secrets` context
@@ -22,6 +67,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ needs.release-please.outputs.tag }}
           fetch-depth: 0
 
       - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
@@ -34,8 +80,8 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # Everything CI checks, again. A tag is the last chance to catch a bad build,
-      # and unlike a pull request it cannot be amended after the fact.
+      # Everything CI checks, once more, against the exact tree being published.
+      # A tag cannot be amended after the fact.
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
@@ -44,22 +90,25 @@ jobs:
       - name: Verify the committed Action bundle matches source
         run: |
           if ! git diff --exit-code -- packages/action/dist; then
-            echo "::error::packages/action/dist is out of date at the tag. Do not release this."
+            echo "::error::packages/action/dist is stale at ${{ needs.release-please.outputs.tag }}."
+            echo "The release pull request should have rebuilt it — see .github/workflows/release-pr.yml."
             exit 1
           fi
 
       - name: Verify the tag matches the package version
         run: |
-          tag="${GITHUB_REF_NAME#v}"
+          tag="${TAG#v}"
           version=$(node -p "require('./packages/core/package.json').version")
           if [ "$tag" != "$version" ]; then
-            echo "::error::tag v$tag does not match package version $version."
+            echo "::error::tag $TAG does not match package version $version."
             exit 1
           fi
+        env:
+          TAG: ${{ needs.release-please.outputs.tag }}
 
       - name: Publish to npm
-        # Skipped until the @fettle scope has a token, so tagging still produces a
-        # verified build and a release even before publishing is set up.
+        # Skipped until the @fettle scope has a token, so the rest of the release
+        # still happens before publishing is set up.
         if: env.NPM_TOKEN != ''
         env:
           NODE_AUTH_TOKEN: ${{ env.NPM_TOKEN }}
@@ -67,19 +116,21 @@ jobs:
           pnpm --filter @fettle/core publish --access public --provenance --no-git-checks
           pnpm --filter @fettle/cli publish --access public --provenance --no-git-checks
 
-      # Action consumers pin `@v1` and expect it to follow the latest v1.x. Nothing
-      # moves it but this.
-      - name: Move the floating major tag
+      - name: Report that publishing was skipped
+        if: env.NPM_TOKEN == ''
         run: |
-          major="$(echo "${GITHUB_REF_NAME}" | cut -d. -f1)"
-          git tag -f "$major" "${GITHUB_REF_NAME}"
-          git push --force origin "refs/tags/$major"
+          echo "::warning::NPM_TOKEN is not set, so nothing was published to npm."
+          echo "The tag, the GitHub release and the floating major tag are all in place."
 
-      - name: Create the GitHub release
+      # Action consumers pin `@v1` and expect it to follow the latest v1.x. This is
+      # the only thing that moves it.
+      - name: Move the floating major tag
         env:
-          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.release-please.outputs.tag }}
+          MAJOR: v${{ needs.release-please.outputs.major }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" \
-            --title "${GITHUB_REF_NAME}" \
-            --generate-notes \
-            --verify-tag
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git tag -f "$MAJOR" "$TAG"
+          git push --force origin "refs/tags/$MAJOR"
+          echo "$MAJOR now points at $TAG"

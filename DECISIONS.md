@@ -279,3 +279,26 @@ grades repositories on hygiene its own repository lacks is not a good look, and 
 self-scan in CI is also the only test that exercises the real GitHub API, the
 committed bundle and the runner protocol together — everything else mocks the
 transport.
+
+## D24 — Releases are cut by release-please, not by tagging
+
+Merging to `main` opens or updates a release pull request; merging _that_ is the
+release. Nobody chooses a version number, and nobody pushes a tag.
+
+**Why release-please over semantic-release:** semantic-release publishes on every
+qualifying merge, which is fine for a library and wrong for a tool whose output is
+a grade people gate builds on — a stray `feat:` should not silently change what
+`@v1` resolves to. A release pull request makes the changelog and the version
+visible before anything ships, and it is a place to put the rebuilt Action bundle.
+
+**Why the release pull request needs its own workflow:** the version is baked into
+`packages/action/dist/index.js`, so a version bump makes the committed bundle stale.
+Release-please only edits text. `release-pr.yml` rebuilds the bundle on the release
+branch, commits it, and then runs the full check suite, so what is verified is what
+merges. CI skips its bundle-freshness check on those branches for exactly this
+reason, and the publish job re-verifies at the tag.
+
+**Why the pull request title is what matters:** merges are squashes, so the title
+becomes the commit subject on `main`, which is release-please's only input. A title
+that is not a Conventional Commit is a change that ships in no release, which is why
+it is enforced rather than suggested.

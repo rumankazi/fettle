@@ -1,0 +1,50 @@
+name: Pull request title
+
+# Pull requests are squash-merged, so the title becomes the commit subject on main,
+# and release-please reads those subjects to decide the next version. A title that
+# is not a Conventional Commit is therefore a release that silently does not happen.
+#
+# Fifteen lines of shell rather than a third-party action: this is a regular
+# expression, and the Action bundle we ship is not the only place a dependency costs
+# something.
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions: {}
+
+jobs:
+  conventional:
+    name: Conventional Commit title
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check the title
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          # type(optional scope)!: subject
+          pattern='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9._-]+\))?!?: .+'
+
+          if printf '%s' "$TITLE" | grep -qE "$pattern"; then
+            echo "OK: $TITLE"
+            exit 0
+          fi
+
+          cat <<'MESSAGE'
+          ::error::The pull request title must be a Conventional Commit.
+
+          It becomes the commit subject on main, and the release automation reads it
+          to work out the next version. Without one, your change ships in no release.
+
+            feat: add a deployment-recency rule        -> minor bump
+            fix: stop treating a 403 as a failure      -> patch bump
+            feat!: drop the v0 report schema           -> major bump
+            docs: explain the grade floor              -> no release
+
+          Types: feat fix docs style refactor perf test build ci chore revert
+          A scope is optional: fix(cli): ...
+          MESSAGE
+          echo "Received: $TITLE"
+          exit 1
