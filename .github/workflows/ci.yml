@@ -2,7 +2,10 @@ name: CI
 
 on:
   push:
-    branches: ['**']
+    # Everything except `badges`, which is generated content with no source on it
+    # (see health.yml). GitHub rejects `branches` and `branches-ignore` together,
+    # and the ignore form already means "every other branch".
+    branches-ignore: [badges]
   pull_request:
 
 # Least privilege by default; jobs opt in to what they need.

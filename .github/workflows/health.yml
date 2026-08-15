@@ -5,17 +5,23 @@ name: Repository health
 # the grade rather than about whether the code works.
 
 on:
+  push:
+    branches: [main] # so the badge reflects a change as soon as it lands
   schedule:
     - cron: '0 9 * * 1' # Mondays at 09:00 UTC
   workflow_dispatch:
 
 permissions: {}
 
+concurrency:
+  group: health
+  cancel-in-progress: true
+
 jobs:
   scan:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write # push the badge to the `badges` branch
 
     steps:
       - uses: actions/checkout@v4
@@ -60,6 +66,51 @@ jobs:
           path: fettle-report/
           if-no-files-found: error
           retention-days: 90
+
+      # shields.io needs the badge JSON at a URL it can fetch, so it lives on an
+      # orphan `badges` branch rather than in the tree — a grade that changes on its
+      # own should not churn main's history or trigger its checks.
+      #
+      # Pushed with GITHUB_TOKEN deliberately: that token starts no workflow runs,
+      # which is exactly what we want for a branch containing one JSON file.
+      - name: Publish the badge
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          work="$RUNNER_TEMP/badges"
+          rm -rf "$work" && mkdir -p "$work" && cd "$work"
+
+          git init -q
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+
+          if git fetch -q --depth 1 origin badges 2>/dev/null; then
+            git checkout -q FETCH_HEAD && git checkout -q -B badges
+          else
+            echo "No badges branch yet; creating it."
+            git checkout -q --orphan badges
+          fi
+
+          rm -f ./*.json
+          cp "$GITHUB_WORKSPACE"/fettle-report/badge/*.json .
+
+          cat > README.md <<'NOTE'
+          # badges
+
+          Generated. Holds the shields.io endpoint payloads written by
+          `.github/workflows/health.yml`. Nothing here is edited by hand, and no
+          source lives on this branch.
+          NOTE
+
+          git add -A
+          if git diff --staged --quiet; then
+            echo "Badge unchanged."
+          else
+            git commit -q -m "chore: update the health badge"
+            git push -q origin badges
+            echo "Badge published."
+          fi
 
       - name: Summarise
         run: |

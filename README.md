@@ -1,7 +1,15 @@
 # Fettle
 
+[![repo health](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Frumankazi%2Ffettle%2Fbadges%2Frumankazi__fettle.json)](https://github.com/rumankazi/fettle/actions/workflows/health.yml)
+[![CI](https://github.com/rumankazi/fettle/actions/workflows/ci.yml/badge.svg)](https://github.com/rumankazi/fettle/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/%40fettle%2Fcli?logo=npm)](https://www.npmjs.com/package/@fettle/cli)
+[![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
 Grade the maintenance health of your GitHub repositories — five explainable rules,
 weighted scoring, a letter grade, and evidence for every result.
+
+That first badge is this repository's own grade, produced by this tool. It is not
+flattering, which is rather the point — the report says exactly why.
 
 > **Status: pre-release (v0.1.0).** The Action, CLI and library all scan live
 > repositories on github.com and GitHub Enterprise Server. Not yet published to the
@@ -89,11 +97,23 @@ so retention stays your choice.
 
 ### Badges
 
-Point shields.io at a badge file your workflow has published:
+The Action writes `<output-dir>/badge/<org>__<repo>.json` in shields.io's
+[endpoint format](https://shields.io/badges/endpoint-badge). shields.io has to be
+able to fetch it over HTTP, so it needs publishing somewhere — a workflow artifact
+is not enough.
+
+This repository does it by pushing that file to an orphan `badges` branch; see
+[`.github/workflows/health.yml`](.github/workflows/health.yml) for a copy-pasteable
+version. Keeping it off `main` means a grade that changes on its own does not churn
+your history or re-run your checks.
+
+Then point shields.io at the raw URL:
 
 ```
-https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/acme/demo/badges/fettle-report/badge/acme__demo.json
+https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/OWNER/REPO/badges/OWNER__REPO.json
 ```
+
+GitHub Pages or a gist work just as well if you already publish somewhere.
 
 ## Quick start: the CLI
 
