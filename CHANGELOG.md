@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.2](https://github.com/rumankazi/fettle/compare/v2.0.1...v2.0.2) (2026-08-15)
+
+
+### Bug fixes
+
+* **cli:** give the package a resolvable entry point ([#20](https://github.com/rumankazi/fettle/issues/20)) ([274b599](https://github.com/rumankazi/fettle/commit/274b5998343bbfb796feafd805d04ff0f5a079d7))
+
 ## [2.0.1](https://github.com/rumankazi/fettle/compare/v2.0.0...v2.0.1) (2026-08-15)
 
 
