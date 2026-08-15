@@ -16,15 +16,15 @@
     "cli": "pnpm -r --filter '@fettle/cli...' run build && node packages/cli/dist/index.js"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.5",
-    "@types/node": "^22.10.2",
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.2.0",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
-    "esbuild": "^0.24.0",
-    "eslint": "^9.0.0",
-    "eslint-config-prettier": "^9.0.0",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.8.1",
+    "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.3.0",
-    "typescript": "^5.7.0",
+    "typescript": "^7.0.2",
     "vite": "^8.2.1",
     "vitest": "^4.1.10"
   },
