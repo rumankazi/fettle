@@ -7,44 +7,72 @@
  */
 
 import { Octokit } from '@octokit/core';
-import { retry } from '@octokit/plugin-retry';
-import { throttling } from '@octokit/plugin-throttling';
 import { TOOL_NAME, TOOL_VERSION } from '../branding.js';
 
 export const GITHUB_COM_API_URL = 'https://api.github.com';
 
-/** How often we retry a request the API asked us to back off from. */
-const MAX_RATE_LIMIT_RETRIES = 2;
+/** Attempts after the first, for errors worth trying again. */
+const MAX_RETRIES = 3;
+
+/** Longest a single backoff will wait. */
+const MAX_BACKOFF_MS = 8_000;
 
 /**
- * Longest we will sit waiting for a rate limit to clear.
- *
- * Octokit's throttling plugin will happily sleep for whatever `retry-after` says,
- * and an exhausted *primary* rate limit resets on the hour — so accepting every
- * retry turns a scan into an hour-long hang with no output. A secondary limit
- * clears in seconds, which is worth waiting for; anything longer should fail fast
- * and tell the user to authenticate or come back later.
- */
-const MAX_RATE_LIMIT_WAIT_SECONDS = 60;
-
-/**
- * Whether to wait out a rate limit and try again.
- *
- * @param retryAfterSeconds how long GitHub asked us to wait
- * @param retryCount        attempts already made for this request
- */
-export function shouldRetryRateLimit(retryAfterSeconds: number, retryCount: number): boolean {
-  return retryAfterSeconds <= MAX_RATE_LIMIT_WAIT_SECONDS && retryCount < MAX_RATE_LIMIT_RETRIES;
-}
-
-const FettleOctokit = Octokit.plugin(retry, throttling);
-
-/**
- * Typed as the base `Octokit`: retry and throttling add behaviour, not API surface,
- * and naming the composed type would leak a transitive package path into our
- * published declarations.
+ * Typed as the base `Octokit`: the retry hook adds behaviour, not API surface.
  */
 export type GitHubClient = Octokit;
+
+/**
+ * Whether an error is worth trying again.
+ *
+ * A missing status is a transport failure — DNS, a dropped connection — and a 5xx
+ * is the server saying it went wrong at its end. Everything else is an answer, and
+ * repeating the question will not change it. In particular a rate-limited 403 is
+ * *not* retried: the fetch layer turns it into an `na` carrying the reset time,
+ * which is more use than a job that sleeps for an hour.
+ */
+function isWorthRetrying(status: number | undefined): boolean {
+  return status === undefined || status >= 500;
+}
+
+function statusOf(error: unknown): number | undefined {
+  if (typeof error !== 'object' || error === null || !('status' in error)) return undefined;
+  const { status } = error as { status: unknown };
+  return typeof status === 'number' ? status : undefined;
+}
+
+/** Quadratic backoff, matching what Octokit's retry plugin used to do. */
+export function backoffMs(attempt: number): number {
+  return Math.min((attempt + 1) ** 2 * 1000, MAX_BACKOFF_MS);
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Retries transient failures.
+ *
+ * This replaces `@octokit/plugin-retry`, whose substance is about fifteen lines but
+ * which pulls in `bottleneck` — last published in 2019, and using `eval` — as a
+ * scheduler, into a bundle every Action consumer downloads. The dependency budget
+ * in CONTRIBUTING.md asks exactly this question, and the answer here is the loop
+ * below.
+ */
+function withRetries(
+  octokit: Octokit,
+  retries: number,
+  backoff: (attempt: number) => number,
+): void {
+  octokit.hook.wrap('request', async (request, options) => {
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        return await request(options);
+      } catch (error) {
+        if (attempt >= retries || !isWorthRetrying(statusOf(error))) throw error;
+        await sleep(backoff(attempt));
+      }
+    }
+  });
+}
 
 /**
  * Resolves the API base URL.
@@ -70,33 +98,26 @@ export interface GitHubClientOptions {
    * Passed through to Octokit's request layer. The `fetch` hook is the seam tests
    * use to answer requests without a network.
    */
-  request?: { fetch?: typeof globalThis.fetch; retries?: number };
-  /**
-   * Secondary-rate-limit pacing, on by default.
-   *
-   * Worth knowing before turning it off or scanning a large fleet: the throttling
-   * plugin paces every GraphQL request — including read-only queries like ours —
-   * at one per second, in a limiter shared by every client in the process. Since
-   * each repository costs exactly one paginated GraphQL query, a fleet scan
-   * settles at roughly one repository per second no matter how many run
-   * concurrently. Disable this only if you are pacing requests yourself.
-   */
-  throttle?: { enabled?: boolean; id?: string };
+  request?: {
+    fetch?: typeof globalThis.fetch;
+    retries?: number;
+    /** Backoff before attempt N, in milliseconds. Defaults to quadratic. */
+    retryBackoffMs?: (attempt: number) => number;
+  };
 }
 
 export function createGitHubClient(options: GitHubClientOptions = {}): GitHubClient {
-  return new FettleOctokit({
+  const octokit = new Octokit({
     auth: options.token,
     baseUrl: resolveApiBaseUrl(options.env ?? process.env, options.apiUrl),
     userAgent: `${TOOL_NAME}/${TOOL_VERSION}`,
     request: options.request,
-    throttle: {
-      enabled: options.throttle?.enabled ?? true,
-      id: options.throttle?.id,
-      onRateLimit: (retryAfter, requestOptions) =>
-        shouldRetryRateLimit(retryAfter, requestOptions.request?.retryCount ?? 0),
-      onSecondaryRateLimit: (retryAfter, requestOptions) =>
-        shouldRetryRateLimit(retryAfter, requestOptions.request?.retryCount ?? 0),
-    },
   });
+
+  withRetries(
+    octokit,
+    options.request?.retries ?? MAX_RETRIES,
+    options.request?.retryBackoffMs ?? backoffMs,
+  );
+  return octokit;
 }

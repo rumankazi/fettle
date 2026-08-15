@@ -169,6 +169,9 @@ the evidence guarantee.
 
 ## D16 — GraphQL is paced at one request per second, and we live with it
 
+> **Superseded by D32.** Octokit's throttling plugin was removed; nothing paces
+> requests now.
+
 Octokit's throttling plugin routes every GraphQL request — including read-only
 queries like ours — through a one-per-second limiter shared across the process.
 
@@ -449,3 +452,35 @@ to be discovered.
 
 GitHub serves `.svg` from `raw.githubusercontent.com` as `image/svg+xml`, so the
 absolute form renders in a README without shields.io in the path.
+
+## D32 — Both Octokit plugins were removed, leaving two runtime dependencies
+
+`@octokit/plugin-throttling` and `@octokit/plugin-retry` are gone. Retrying is a
+`hook.wrap` in `client.ts`; nothing paces requests. `@fettle/core` depends on
+`@octokit/core` and `js-yaml`, and nothing else.
+
+**What prompted it:** Socket flagged the published packages for using `eval` and for
+a dependency unmaintained for more than five years. Both were `bottleneck@2.19.5`,
+published in 2019. My first trace blamed `plugin-throttling`; it was wrong —
+`plugin-retry` pulls `bottleneck` too, and removing only the first changed nothing.
+
+**Why removing them was right anyway.** `plugin-retry` is eighty-seven lines, of
+which the retry decision is about fifteen: try again on anything that is not a 4xx,
+with quadratic backoff. It uses `bottleneck` purely as a scheduler. The dependency
+budget in `CONTRIBUTING.md` asks whether a dependency can be replaced by thirty lines
+of our own code, and here the honest answer was yes — the same test that removed
+`@actions/core`.
+
+`plugin-throttling` had its own cost. It paced every request through the same
+`bottleneck`, GraphQL included, so a fleet scan could not exceed roughly one
+repository per second — for a workload making eight requests per repository at a
+concurrency of four, nowhere near a secondary rate limit. D14 had already capped its
+waiting at sixty seconds because sleeping through a primary rate limit hangs a job
+for an hour; removing it finishes the thought.
+
+**What changed behaviourally:** a rate-limited 403 is no longer waited out. It ends
+that check as `na` carrying the reset time, which is what the fetch layer already
+did once the wait cap was hit. Transport failures and 5xx are retried, three times,
+backing off 1s, 4s, 8s.
+
+The Action bundle went from 236 kB to 176 kB.

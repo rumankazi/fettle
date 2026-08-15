@@ -30,8 +30,7 @@ before it needs a review.
 
 1. **The report JSON is the public API.** Changes to `HealthReport` after v1 must be
    additive. Anything else needs a `schemaVersion` bump.
-2. **Minimal runtime dependencies.** `@octokit/core` and its official plugins, and
-   `js-yaml`. That is the whole list, and CI enforces it. Anything else needs a
+2. **Minimal runtime dependencies.** `@octokit/core` and `js-yaml`. Two. That is the whole list, and CI enforces it. Anything else needs a
    written justification explaining why it cannot be about thirty lines of our own
    code — `@actions/core` was removed on exactly that test, since it brought three
    quarters of the Action bundle and three advisories for six functions we now
