@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.3](https://github.com/rumankazi/fettle/compare/v0.1.2...v0.1.3) (2026-08-15)
+
+
+### Bug fixes
+
+* **ci:** move the floating major tag before publishing to npm ([13514d6](https://github.com/rumankazi/fettle/commit/13514d60daff0b11bbae549782b5408cab7443d9))
+* **ci:** push the release bundle as the App, not github-actions ([96b13e9](https://github.com/rumankazi/fettle/commit/96b13e942fedd5539528b7fd8e9345dfdabd130c))
+
 ## [0.1.2](https://github.com/rumankazi/fettle/compare/v0.1.1...v0.1.2) (2026-08-15)
 
 
