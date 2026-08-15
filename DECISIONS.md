@@ -316,6 +316,9 @@ that rebuilds the Action bundle for the new version. The release then fails at t
 publish step, which re-verifies the bundle. An App-authored pull request is a normal
 pull request and triggers everything.
 
+The token is minted from the App's **Client ID**, not its App ID —
+`actions/create-github-app-token` deprecated `app-id` in favour of `client-id`.
+
 **Why an App rather than a personal access token:** the token lasts an hour, is
 scoped to the repositories the App is installed on, carries only the permissions
 granted to it, and is not tied to a person who might leave. A PAT is standing access
@@ -324,3 +327,20 @@ on a renewal reminder.
 The fallback is kept so that a fresh clone of this repository works without any
 setup, degrading to a `na` on `branch_protection` and release pull requests that
 need a manual nudge, rather than failing outright.
+
+## D26 — pnpm packs, npm publishes
+
+The release job builds tarballs with `pnpm pack` and uploads them with
+`npm publish <tarball>`, rather than using `pnpm publish`.
+
+**Why:** each tool can do exactly one half of the job. pnpm is the only one that
+rewrites `"@fettle/core": "workspace:*"` into a real version — publishing the raw
+manifest would ship a package nobody can install. npm is the only one that performs
+the OIDC exchange for trusted publishing. Packing with one and publishing with the
+other gets both, and costs two lines.
+
+Publishing is configured by `NPM_TRUSTED_PUBLISHING` (OIDC, preferred, no secret at
+all) or `NPM_TOKEN` (a granular token), and skips with a warning when neither is
+set so the rest of a release still completes. Trusted publishing needs npm ≥ 11.5.1
+on Node ≥ 22.14.0, so the job switches to Node 24 just before publishing — every
+check above that point runs on Node 20, the version the packages support.

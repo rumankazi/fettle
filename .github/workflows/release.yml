@@ -52,15 +52,15 @@ jobs:
       # the App and therefore does trigger the checks that must run on it.
       - uses: actions/create-github-app-token@v2
         id: app-token
-        if: vars.FETTLE_APP_ID != ''
+        if: vars.FETTLE_APP_CLIENT_ID != ''
         with:
-          app-id: ${{ vars.FETTLE_APP_ID }}
+          client-id: ${{ vars.FETTLE_APP_CLIENT_ID }}
           private-key: ${{ secrets.FETTLE_APP_PRIVATE_KEY }}
 
       - name: Warn when running without an App token
-        if: vars.FETTLE_APP_ID == ''
+        if: vars.FETTLE_APP_CLIENT_ID == ''
         run: |
-          echo "::warning::No FETTLE_APP_ID configured, so the release pull request is"
+          echo "::warning::No FETTLE_APP_CLIENT_ID configured, so the release pull request is"
           echo "authored by GITHUB_TOKEN and will not trigger any checks — including the"
           echo "bundle rebuild in release-pr.yml. Push an empty commit to that branch to"
           echo "wake them up, or configure the App. See CONTRIBUTING.md#tokens."
@@ -129,21 +129,52 @@ jobs:
         env:
           TAG: ${{ needs.release-please.outputs.tag }}
 
-      - name: Publish to npm
-        # Skipped until the @fettle scope has a token, so the rest of the release
-        # still happens before publishing is set up.
-        if: env.NPM_TOKEN != ''
+      # pnpm packs — it is the only thing that knows how to rewrite `workspace:*`
+      # into a real version — and npm publishes, because npm is what performs the
+      # OIDC exchange for trusted publishing. Verified: the packed manifest carries
+      # `"@fettle/core": "<version>"`, not the workspace protocol.
+      - name: Pack the publishable packages
+        run: |
+          mkdir -p "$RUNNER_TEMP/packages"
+          (cd packages/core && pnpm pack --pack-destination "$RUNNER_TEMP/packages")
+          (cd packages/cli && pnpm pack --pack-destination "$RUNNER_TEMP/packages")
+          ls -l "$RUNNER_TEMP/packages"
+
+      # Trusted publishing needs npm >= 11.5.1 on Node >= 22.14.0. Everything above
+      # this point deliberately ran on Node 20, the version the packages support.
+      - uses: actions/setup-node@v4
+        if: vars.NPM_TRUSTED_PUBLISHING == 'true' || env.NPM_TOKEN != ''
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      # No token anywhere: npm exchanges the workflow's OIDC identity for a
+      # short-lived, single-use credential. Provenance is generated automatically,
+      # so `--provenance` is neither needed nor passed.
+      - name: Publish to npm via trusted publishing
+        if: vars.NPM_TRUSTED_PUBLISHING == 'true'
+        env:
+          VERSION: ${{ needs.release-please.outputs.version }}
+        run: |
+          npm --version
+          npm publish "$RUNNER_TEMP/packages/fettle-core-$VERSION.tgz" --access public
+          npm publish "$RUNNER_TEMP/packages/fettle-cli-$VERSION.tgz" --access public
+
+      - name: Publish to npm with a token
+        if: vars.NPM_TRUSTED_PUBLISHING != 'true' && env.NPM_TOKEN != ''
         env:
           NODE_AUTH_TOKEN: ${{ env.NPM_TOKEN }}
+          VERSION: ${{ needs.release-please.outputs.version }}
         run: |
-          pnpm --filter @fettle/core publish --access public --provenance --no-git-checks
-          pnpm --filter @fettle/cli publish --access public --provenance --no-git-checks
+          npm publish "$RUNNER_TEMP/packages/fettle-core-$VERSION.tgz" --access public --provenance
+          npm publish "$RUNNER_TEMP/packages/fettle-cli-$VERSION.tgz" --access public --provenance
 
       - name: Report that publishing was skipped
-        if: env.NPM_TOKEN == ''
+        if: vars.NPM_TRUSTED_PUBLISHING != 'true' && env.NPM_TOKEN == ''
         run: |
-          echo "::warning::NPM_TOKEN is not set, so nothing was published to npm."
-          echo "The tag, the GitHub release and the floating major tag are all in place."
+          echo "::warning::Neither NPM_TRUSTED_PUBLISHING nor NPM_TOKEN is set, so"
+          echo "nothing was published to npm. The tag, the GitHub release and the"
+          echo "floating major tag are all in place. See CONTRIBUTING.md#tokens."
 
       # Action consumers pin `@v1` and expect it to follow the latest v1.x. This is
       # the only thing that moves it.

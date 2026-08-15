@@ -38,10 +38,15 @@ jobs:
       # installation token is short-lived and scoped; see CONTRIBUTING.md#tokens.
       - uses: actions/create-github-app-token@v2
         id: app-token
-        if: vars.FETTLE_APP_ID != ''
+        if: vars.FETTLE_APP_CLIENT_ID != ''
         with:
-          app-id: ${{ vars.FETTLE_APP_ID }}
+          client-id: ${{ vars.FETTLE_APP_CLIENT_ID }}
           private-key: ${{ secrets.FETTLE_APP_PRIVATE_KEY }}
+          # Narrower than the App itself: scanning only ever reads, even though the
+          # same App needs write access when it is cutting a release.
+          permission-administration: read
+          permission-contents: read
+          permission-pull-requests: read
 
       - name: Grade this repository
         id: health
