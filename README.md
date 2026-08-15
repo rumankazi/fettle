@@ -5,7 +5,8 @@
 [![npm](https://img.shields.io/npm/v/%40fettle%2Fcli?logo=npm)](https://www.npmjs.com/package/@fettle/cli)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![marketplace](https://img.shields.io/badge/marketplace-fettle-2ea44f?logo=github)](https://github.com/marketplace/actions/fettle-repository-health-grade)
-[![socket](https://badge.socket.dev/npm/package/@fettle/core)](https://socket.dev/npm/package/@fettle/core)
+[![socket: core](https://badge.socket.dev/npm/package/@fettle/core)](https://socket.dev/npm/package/@fettle/core)
+[![socket: cli](https://badge.socket.dev/npm/package/@fettle/cli)](https://socket.dev/npm/package/@fettle/cli)
 
 Grade the maintenance health of your GitHub repositories — five explainable rules,
 weighted scoring, a letter grade, and evidence for every result.

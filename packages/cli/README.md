@@ -1,5 +1,8 @@
 # @fettle/cli
 
+[![npm](https://img.shields.io/npm/v/%40fettle%2Fcli?logo=npm)](https://www.npmjs.com/package/@fettle/cli)
+[![socket](https://badge.socket.dev/npm/package/@fettle/cli)](https://socket.dev/npm/package/@fettle/cli)
+
 Command-line interface for [Fettle](https://github.com/rumankazi/fettle) — grade the
 maintenance health of GitHub repositories.
 
