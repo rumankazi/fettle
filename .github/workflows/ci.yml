@@ -1,11 +1,11 @@
 name: CI
 
 on:
+  # Only `main` on push. Any other branch that matters has a pull request, and
+  # running on both meant every push to a branch ran CI twice — once for the push
+  # and once for the pull request — at double the minutes for the same commit.
   push:
-    # Everything except `badges`, which is generated content with no source on it
-    # (see health.yml). GitHub rejects `branches` and `branches-ignore` together,
-    # and the ignore form already means "every other branch".
-    branches-ignore: [badges]
+    branches: [main]
   pull_request:
 
 # Least privilege by default; jobs opt in to what they need.
@@ -62,11 +62,13 @@ jobs:
       # Consumers run the committed bundle, never an install, so a stale dist ships
       # code nobody reviewed. Rebuilding above and diffing here is the guard.
       #
-      # Skipped on release branches: the version is baked into the bundle, so a
-      # version bump necessarily makes it stale. release-pr.yml rebuilds it there
-      # and re-runs these checks afterwards.
+      # Skipped on bot branches: a version bump bakes into the bundle and an esbuild
+      # upgrade changes its output, so both necessarily make it stale.
+      # release-pr.yml rebuilds it there and re-runs these checks afterwards.
       - name: Verify the committed Action bundle is up to date
-        if: ${{ !startsWith(github.head_ref, 'release-please--') }}
+        if: >-
+          ${{ !startsWith(github.head_ref, 'release-please--') &&
+              !startsWith(github.head_ref, 'renovate/') }}
         run: |
           if ! git diff --exit-code -- packages/action/dist; then
             echo "::error::packages/action/dist is out of date. Run 'pnpm build' and commit the result."
