@@ -418,8 +418,10 @@ describe('action.yml', () => {
    * The manifest cannot import a constant, so its defaults are the one place the
    * names are duplicated. This test is what keeps the two in step.
    */
+  // At the repository root, because the GitHub Marketplace only lists an action
+  // whose metadata file is there — a sub-folder manifest is usable but invisible.
   const manifest = load(
-    readFileSync(fileURLToPath(new URL('../action.yml', import.meta.url)), 'utf8'),
+    readFileSync(fileURLToPath(new URL('../../../action.yml', import.meta.url)), 'utf8'),
   ) as {
     inputs: Record<string, { default?: string; description?: string; required?: boolean }>;
     outputs: Record<string, { description?: string }>;
@@ -449,7 +451,7 @@ describe('action.yml', () => {
 
   it('points at the committed bundle and carries Marketplace branding', () => {
     expect(manifest.runs.using).toBe('node20');
-    expect(manifest.runs.main).toBe('dist/index.js');
+    expect(manifest.runs.main).toBe('packages/action/dist/index.js');
     expect(manifest.branding?.icon).toBeTruthy();
     expect(manifest.branding?.color).toBeTruthy();
   });

@@ -111,7 +111,7 @@ jobs:
 
       - name: Scan this repository with this build
         id: health
-        uses: ./packages/action
+        uses: ./
         # No fail-below: a health grade must never gate a code change. The point is
         # that the Action ran and produced a report.
 

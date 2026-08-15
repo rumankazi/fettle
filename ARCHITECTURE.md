@@ -29,8 +29,11 @@ packages/
   action/
     src/index.ts        # reads action inputs → core assess() → outputs, summary,
                         #   artifact file, optional report_url POST
-    action.yml          # inputs/outputs/branding
     dist/index.js       # committed esbuild bundle (CI verifies it is up to date)
+
+action.yml              # at the ROOT, not in packages/action: the Marketplace only
+                        # lists an action whose metadata sits there. `runs.main`
+                        # points back into packages/action/dist/.
 ```
 
 Dependency direction: `cli` and `action` depend on `core`. `core` depends on

@@ -132,6 +132,11 @@ Two consistency tests exist because some facts cannot be expressed in one place:
 `TOOL_VERSION` against the package version. If you change one, the test tells you
 about the other.
 
+Note that `action.yml` lives at the **repository root**, not in `packages/action`.
+The GitHub Marketplace only lists an action whose metadata file is there; a manifest
+in a sub-folder still works via `owner/repo/path@ref` but is never listed. The bundle
+it points at stays in `packages/action/dist/`.
+
 ## Commits and pull requests
 
 Pull requests are **squash-merged**, so the pull request title becomes the commit
