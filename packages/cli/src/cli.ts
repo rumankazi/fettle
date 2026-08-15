@@ -12,6 +12,7 @@ import {
   badgeFilename,
   buildBadgePayload,
   CONFIG_FILENAME,
+  FLOOR_GRADES,
   meetsGradeFloor,
   parseConfig,
   renderMarkdown,
@@ -20,6 +21,7 @@ import {
   type AssessOptions,
   type BadgePayload,
   type ConfigInput,
+  type FloorGrade,
   type Grade,
   type HealthReport,
 } from '@fettle/core';
@@ -32,10 +34,6 @@ export const EXIT_SCAN_FAILED = 3;
 
 const FORMATS = ['json', 'markdown', 'badge'] as const;
 export type Format = (typeof FORMATS)[number];
-
-/** `N/A` is excluded: a floor of "no checks succeeded" is not a meaningful gate. */
-const FLOOR_GRADES = ['A', 'B', 'C', 'D', 'F'] as const;
-export type FloorGrade = (typeof FLOOR_GRADES)[number];
 
 export interface CliOptions {
   repos: string[];

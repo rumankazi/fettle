@@ -45,3 +45,21 @@ jobs:
             echo "::error::packages/action/dist is out of date. Run 'pnpm build' and commit the result."
             exit 1
           fi
+
+      # The unit tests import the Action's source, so they cannot catch a bundle
+      # that fails to load — bundling CommonJS dependencies into ESM output has
+      # done exactly that. Run the real artefact and check it reaches our own
+      # input validation.
+      - name: Verify the committed Action bundle loads
+        env:
+          GITHUB_REPOSITORY: ''
+        run: |
+          output=$(node packages/action/dist/index.js 2>&1 || true)
+          echo "$output"
+          case "$output" in
+            *"no repositories to scan"*)
+              echo "Action bundle loads and runs." ;;
+            *)
+              echo "::error::The Action bundle did not load. Check packages/action/build.mjs."
+              exit 1 ;;
+          esac

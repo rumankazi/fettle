@@ -177,3 +177,30 @@ maintenance-health scan is not latency-sensitive. The consequence is documented 
 `GitHubClientOptions.throttle` because it is the real ceiling on fleet throughput:
 one repository per second, whatever `maxConcurrency` says. Tests disable throttling
 rather than serialise on it.
+
+## D17 — The Action bundle carries a `createRequire` banner
+
+`packages/action/build.mjs` prepends a real `require` to the ESM bundle.
+
+**Why:** `@actions/core` is CommonJS, and esbuild's ESM output replaces `require`
+with a shim that throws unless one is already in scope. Without the banner the
+committed bundle died on load with `Dynamic require of "os" is not supported` —
+which no unit test caught, because the tests import the Action's source rather than
+its bundle. CI now runs the built artefact and checks it reaches our own input
+validation, so this class of failure cannot ship again.
+
+The alternative, emitting CommonJS, would have made this the only package in the
+workspace with a different module system and forced a second `moduleResolution`
+setting to typecheck it.
+
+## D18 — The Action's `grade` and `score` outputs describe the fleet average
+
+`ARCHITECTURE.md` §Action design specifies three outputs — `grade`, `score`,
+`report-path` — without saying what they mean for a multi-repository scan. They
+carry `fleet.averageScore` and its grade.
+
+**Why:** for a single repository, which is the common case, the fleet average is
+exactly that repository's score, so one rule covers both without a special case.
+Per-repository grades are in `report.json` and the job summary. Note that `--fail-below`
+deliberately does _not_ use the average: it checks every repository individually, so
+one healthy repository cannot mask a rotten one.

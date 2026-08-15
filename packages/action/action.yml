@@ -1,0 +1,55 @@
+name: 'Fettle — repository health grade'
+description: 'Grade the maintenance health of one or more GitHub repositories, with evidence for every result.'
+author: 'Fettle contributors'
+
+branding:
+  icon: 'activity'
+  color: 'green'
+
+inputs:
+  repos:
+    description: |
+      Repositories to scan, as `org/name`, separated by commas or newlines.
+      Defaults to the repository running the workflow.
+    required: false
+    default: ''
+  token:
+    description: |
+      Token used for the GitHub API. The default `GITHUB_TOKEN` covers CODEOWNERS,
+      dependency configs and pull requests; reading branch protection additionally
+      needs `administration: read`, so supply a PAT or App token to unlock that
+      check. Without it the rule reports `na` and the summary says how to fix it.
+    required: false
+    default: ${{ github.token }}
+  config-path:
+    description: 'Path to the config file read from each scanned repository.'
+    required: false
+    default: '.repohealth.yml'
+  fail-below:
+    description: |
+      Fail the step if any repository grades below this floor: A, B, C, D or F.
+      A repository graded N/A — every check inconclusive — never trips the floor.
+    required: false
+    default: ''
+  report-url:
+    description: |
+      Optional endpoint to POST the JSON report to. A failure here is a warning,
+      never a failed run: a dashboard being down says nothing about repository health.
+    required: false
+    default: ''
+  output-dir:
+    description: 'Directory for `report.json` and `badge/<repo>.json`.'
+    required: false
+    default: 'repohealth-report'
+
+outputs:
+  grade:
+    description: 'Letter grade. For several repositories, the grade of the fleet average.'
+  score:
+    description: 'Score out of 100, or empty when nothing could be graded.'
+  report-path:
+    description: 'Path to the written `report.json`.'
+
+runs:
+  using: 'node20'
+  main: 'dist/index.js'

@@ -3,9 +3,9 @@
 Grade the maintenance health of your GitHub repositories — five explainable rules,
 weighted scoring, a letter grade, and evidence for every result.
 
-> **Status: pre-release (v0.1.0).** The CLI and the library scan live repositories
-> on github.com and GitHub Enterprise Server. The GitHub Action wrapper is not built
-> yet. See [Roadmap](#roadmap).
+> **Status: pre-release (v0.1.0).** The Action, CLI and library all scan live
+> repositories on github.com and GitHub Enterprise Server. Not yet published to the
+> Marketplace or npm. See [Roadmap](#roadmap).
 
 ## What it measures
 
@@ -20,6 +20,61 @@ weighted scoring, a letter grade, and evidence for every result.
 Scoring is a weighted average, and a check we could not run scores nothing at all —
 it leaves both sides of the average, so a narrow token never costs you points. The
 full math is in [SCORING.md](SCORING.md), which is normative.
+
+## Quick start: the Action
+
+```yaml
+name: Repository health
+on:
+  schedule: [{ cron: '0 9 * * 1' }] # Mondays at 09:00
+  workflow_dispatch:
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: acme/fettle/packages/action@v1
+        id: health
+        with:
+          fail-below: C # optional gate
+
+      - run: echo "Graded ${{ steps.health.outputs.grade }} (${{ steps.health.outputs.score }})"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: repo-health
+          path: ${{ steps.health.outputs.report-path }}
+```
+
+That writes `report.json` and a shields.io badge payload per repository, and posts
+the table above to the job summary.
+
+### Inputs
+
+| Input         | Default               | Description                                                          |
+| ------------- | --------------------- | -------------------------------------------------------------------- |
+| `repos`       | the current repo      | `org/name`, comma- or newline-separated.                             |
+| `token`       | `${{ github.token }}` | See [Token permissions](#token-permissions).                         |
+| `config-path` | `.repohealth.yml`     | Config file read from each scanned repository.                       |
+| `fail-below`  | —                     | Fail the step below this grade: `A`–`F`. `N/A` never trips it.       |
+| `report-url`  | —                     | POST the JSON report here. A failure is a warning, not a failed run. |
+| `output-dir`  | `repohealth-report`   | Where `report.json` and `badge/<repo>.json` are written.             |
+
+### Outputs
+
+`grade`, `score`, and `report-path`. For several repositories `grade` and `score`
+describe the fleet average; per-repository detail is in `report.json`.
+
+The Action does not upload artifacts itself — pair it with `actions/upload-artifact`
+so retention stays your choice.
+
+### Badges
+
+Point shields.io at a badge file your workflow has published:
+
+```
+https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/acme/demo/badges/repohealth-report/badge/acme__demo.json
+```
 
 ## Quick start: the CLI
 
@@ -200,8 +255,8 @@ pnpm cli -- --help
 | 2     | GitHub fetch layer (`RepoContext`) and live rules | done        |
 | 3     | Scoring and report assembly                       | done        |
 | 4     | CLI wired to the fetch layer                      | done        |
-| 5     | GitHub Action (`action.yml`, summary, outputs)    | not started |
-| 6     | Docs, badge setup, release                        | not started |
+| 5     | GitHub Action (`action.yml`, summary, outputs)    | done        |
+| 6     | CONTRIBUTING, "vs Scorecard" comparison, release  | not started |
 
 Design deviations and resolved ambiguities are recorded in
 [DECISIONS.md](DECISIONS.md).

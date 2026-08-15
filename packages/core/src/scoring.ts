@@ -75,8 +75,21 @@ export function gradeFromScore(score: number | null): Grade {
   return 'F';
 }
 
-/** Ranking used by `--fail-below`; higher is better. `N/A` is unrankable. */
-const GRADE_RANK: Record<Exclude<Grade, 'N/A'>, number> = { F: 0, D: 1, C: 2, B: 3, A: 4 };
+/**
+ * Grades that can serve as a floor, best first.
+ *
+ * `N/A` is excluded: a floor of "no check succeeded" would gate on nothing.
+ */
+export const FLOOR_GRADES = ['A', 'B', 'C', 'D', 'F'] as const;
+
+export type FloorGrade = (typeof FLOOR_GRADES)[number];
+
+export function isFloorGrade(value: string): value is FloorGrade {
+  return (FLOOR_GRADES as readonly string[]).includes(value);
+}
+
+/** Ranking used by a grade floor; higher is better. `N/A` is unrankable. */
+const GRADE_RANK: Record<FloorGrade, number> = { F: 0, D: 1, C: 2, B: 3, A: 4 };
 
 /**
  * Compares a graded repo against a floor.
@@ -84,7 +97,7 @@ const GRADE_RANK: Record<Exclude<Grade, 'N/A'>, number> = { F: 0, D: 1, C: 2, B:
  * `N/A` means every check was inconclusive, which is not evidence of poor health,
  * so it never trips a floor.
  */
-export function meetsGradeFloor(grade: Grade, floor: Exclude<Grade, 'N/A'>): boolean {
+export function meetsGradeFloor(grade: Grade, floor: FloorGrade): boolean {
   if (grade === 'N/A') return true;
   return GRADE_RANK[grade] >= GRADE_RANK[floor];
 }

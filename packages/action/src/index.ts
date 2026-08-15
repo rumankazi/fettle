@@ -1,16 +1,9 @@
 /**
- * GitHub Action entry point.
- *
- * Phase 5 wires this to `action.yml` inputs, the step summary, report/badge files
- * and the optional `report-url` POST. Until the GitHub fetch layer exists there is
- * nothing honest for it to report, so it fails loudly rather than emitting a grade
- * it did not measure.
+ * GitHub Action entry point. Bundled to `dist/index.js` and committed, so
+ * consumers never run an install.
  */
 
-import { TOOL_NAME, TOOL_VERSION } from '@fettle/core';
+import { runAction } from './action.js';
+import { createActionRuntime } from './runtime.js';
 
-process.exitCode = 1;
-process.stderr.write(
-  `${TOOL_NAME} ${TOOL_VERSION}: the Action is not implemented yet (Phase 5). ` +
-    `The scoring engine is usable today via the @fettle/core library.\n`,
-);
+await runAction({ runtime: createActionRuntime() });

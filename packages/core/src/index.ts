@@ -53,9 +53,12 @@ export { evaluateRules, ruleOrder, ruleRegistry } from './rules/rule.js';
 export {
   aggregateRepoScore,
   countsTowardScore,
+  FLOOR_GRADES,
   gradeFromScore,
+  isFloorGrade,
   meetsGradeFloor,
   thresholdScore,
+  type FloorGrade,
 } from './scoring.js';
 export * from './types.js';
 

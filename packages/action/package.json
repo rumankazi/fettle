@@ -9,10 +9,11 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --outfile=dist/index.js",
+    "build": "tsc -p tsconfig.json && node build.mjs",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@actions/core": "^1.11.1",
     "@fettle/core": "workspace:*"
   }
 }
