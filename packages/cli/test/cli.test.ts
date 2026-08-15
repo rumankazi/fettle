@@ -55,6 +55,10 @@ describe('parseCliOptions', () => {
     expect(parseCliOptions(['--repos', 'org/a\norg/b\n']).repos).toEqual(['org/a', 'org/b']);
   });
 
+  it('ignores the leading separator that npm and pnpm forward', () => {
+    expect(parseCliOptions(['--', '--repos', 'org/a']).repos).toEqual(['org/a']);
+  });
+
   it('falls back to $GITHUB_REPOSITORY', () => {
     expect(parseCliOptions([], { GITHUB_REPOSITORY: 'org/current' }).repos).toEqual([
       'org/current',

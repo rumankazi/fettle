@@ -105,9 +105,13 @@ export function parseCliOptions(
   env: Readonly<Record<string, string | undefined>> = {},
 ): CliOptions {
   let parsed;
+  // `npm run cli -- --repos …` and `pnpm cli -- --repos …` forward the separator
+  // itself, and we take no positionals, so drop one leading `--`.
+  const args = argv[0] === '--' ? argv.slice(1) : [...argv];
+
   try {
     parsed = parseArgs({
-      args: [...argv],
+      args,
       strict: true,
       allowPositionals: false,
       options: {
