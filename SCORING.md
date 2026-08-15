@@ -122,6 +122,35 @@ Shields endpoint JSON per repo (written alongside):
 
 Colors: A `brightgreen`, B `green`, C `yellow`, D `orange`, F `red`, N/A `lightgrey`.
 
+### What the contract actually covers
+
+Everything above is stable: after v1, fields are added but never removed, renamed or
+repurposed without bumping `schemaVersion`. Three clarifications, because silence
+here is what turns an implementation detail into an accidental promise.
+
+**`details` is split.** These keys are part of the contract and safe to build on:
+
+| Rule                               | Key                 | Meaning                                    |
+| ---------------------------------- | ------------------- | ------------------------------------------ |
+| `open_pr_count`, `stale_prs`       | `value`             | the raw measurement the score derives from |
+| `open_pr_count`, `stale_prs`       | `good_at`, `bad_at` | the thresholds it was scored against       |
+| `open_pr_count`, `stale_prs`       | `truncated`         | `true` when `value` is a lower bound       |
+| `branch_protection`                | `source`            | `ruleset` or `legacy`                      |
+| `codeowners`, `dependency_updates` | `path`              | the file found, when the rule passed       |
+
+Any **other** key in `details` — `draftsExcluded`, `checkedPaths`, `stalePrNumbers`,
+`enabled` — is diagnostic. It exists to explain a result to a person reading the
+report, and may change in a minor release. Do not build a dashboard on it.
+
+**`fleet.grades` omits grades with no repositories.** A missing key means zero, not
+an error; `grades.A` is `undefined` rather than `0`.
+
+**`fleet.averageScore` is the plain mean of `repos[].score`**, ignoring repositories
+that scored `null`, and weighting every repository equally regardless of size. It is
+`null` when nothing could be scored.
+
+**`evidence` is never empty** for any rule, in any status.
+
 ## 7. Worked example (required test case)
 
 Config = defaults. Repo state: branch protection unreadable (default token → `na`),

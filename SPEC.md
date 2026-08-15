@@ -63,14 +63,30 @@ json|markdown|badge`, exit code reflects grade floor (configurable) for CI gatin
 - **Dashboard developer**: imports `core` or shells out to the CLI with `--format
 json`.
 
-## Success criteria for v1
+## Success criteria for v1 — met
 
 - Empty repo → working Action run in under 5 minutes following only the README.
 - Default-config scan of a typical active repo completes in < 10 s and ≤ ~10 API
-  requests per repo.
+  requests per repo. **Measured at 7 requests** (1 metadata, 3 tree, 2 protection,
+  1 GraphQL) and pinned by a test. A repository with more than 500 open pull
+  requests costs up to four extra GraphQL pages and reports its counts as a lower
+  bound.
 - All five rules produce correct pass/fail/na with evidence on: a fully configured
   repo, a bare repo, and a repo scanned with a default token lacking admin read.
+  **Covered by the rule tests, and by the §7 worked example run end to end through
+  the fetch layer.**
 - Report JSON validates against the published schema; schema documented in README.
+  **Pinned by `schema.test.ts`.**
+
+## Post-v1 backlog
+
+Deliberately not built for v1, and each still a product decision rather than a
+scheduled task: a key-CI-freshness rule, a deployment-recency rule, org-wide
+repository discovery, a trend-diffing helper, GitLab support, and plus/minus grades.
+
+Note the cost of the first two: a rule that is **enabled by default changes the
+grade of repositories that did not change**, so it is a breaking change and needs a
+major release. Ship a new rule disabled by default, or batch several into one major.
 
 ## Non-goals for v1
 
