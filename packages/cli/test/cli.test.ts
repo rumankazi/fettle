@@ -2,7 +2,7 @@ import { rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { buildHealthReport, type RuleResult } from '@fettle/core';
+import { buildHealthReport, TOOL_NAME, TOOL_VERSION, type RuleResult } from '@fettle/core';
 import {
   EXIT_BELOW_FLOOR,
   EXIT_OK,
@@ -125,7 +125,7 @@ describe('run', () => {
   it('prints the version', async () => {
     const { exitCode, stdout } = await invoke(['--version']);
     expect(exitCode).toBe(EXIT_OK);
-    expect(stdout.trim()).toBe('fettle 0.1.0');
+    expect(stdout.trim()).toBe(`${TOOL_NAME} ${TOOL_VERSION}`);
   });
 
   it('reports usage errors on stderr and exits 2', async () => {

@@ -8,6 +8,7 @@ import {
   renderMarkdown,
   type RepoAssessment,
 } from '../src/report.js';
+import { TOOL_NAME, TOOL_VERSION } from '../src/branding.js';
 import type { RuleResult } from '../src/types.js';
 
 /** The SCORING.md §7 repository: unreadable protection, no dependency bot, PRs piling up. */
@@ -90,7 +91,10 @@ describe('buildHealthReport', () => {
     const report = buildHealthReport([workedExample], GENERATED_AT);
 
     expect(report.schemaVersion).toBe(1);
-    expect(report.tool).toEqual({ name: 'fettle', version: '0.1.0' });
+    // Not a literal: release-please bumps TOOL_VERSION, and a test that pins the
+    // version breaks on every release. `branding.test.ts` is what checks the
+    // version is right; this only checks the report carries it.
+    expect(report.tool).toEqual({ name: TOOL_NAME, version: TOOL_VERSION });
     expect(report.generatedAt).toBe('2026-08-15T09:30:00.000Z');
     expect(report.repos[0]).toMatchObject({ repo: 'acme/demo', score: 55, grade: 'F' });
     expect(report.fleet).toEqual({ repoCount: 1, averageScore: 55, grades: { F: 1 } });
