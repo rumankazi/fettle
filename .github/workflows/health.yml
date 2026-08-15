@@ -45,6 +45,11 @@ jobs:
       - uses: actions/create-github-app-token@v3
         id: app-token
         if: vars.FETTLE_APP_CLIENT_ID != ''
+        # If the App has not been granted Administration, minting a token that asks
+        # for it fails outright. Degrade to GITHUB_TOKEN instead: the scan still
+        # runs, `branch_protection` reports `na`, and the report says how to unlock
+        # it — which is the behaviour this tool asks of everyone else.
+        continue-on-error: true
         with:
           client-id: ${{ vars.FETTLE_APP_CLIENT_ID }}
           private-key: ${{ secrets.FETTLE_APP_PRIVATE_KEY }}
@@ -53,6 +58,14 @@ jobs:
           permission-administration: read
           permission-contents: read
           permission-pull-requests: read
+
+      - name: Note when the App token was unavailable
+        if: steps.app-token.outcome == 'failure'
+        run: |
+          echo "::warning::Could not mint an App token, so this scan used GITHUB_TOKEN."
+          echo "branch_protection will report 'na'. Grant the App repository"
+          echo "Administration: Read-only and accept the permission update on the"
+          echo "installation. See CONTRIBUTING.md#tokens."
 
       - name: Grade this repository
         id: health
