@@ -11,9 +11,9 @@ weighted scoring, a letter grade, and evidence for every result.
 That first badge is this repository's own grade, produced by this tool. It is not
 flattering, which is rather the point — the report says exactly why.
 
-> **Status: pre-release (v0.1.0).** The Action, CLI and library all scan live
-> repositories on github.com and GitHub Enterprise Server. Not yet published to the
-> Marketplace or npm. See [Roadmap](#roadmap).
+> **v1.0.0.** The report schema is now a contract: `HealthReport` changes additively
+> or the `schemaVersion` goes up. Published on npm; not yet listed on the GitHub
+> Marketplace.
 
 ## What it measures
 
@@ -310,28 +310,16 @@ pnpm cli -- --help
 
 ## Roadmap
 
-| Phase | Scope                                             | Status      |
-| ----- | ------------------------------------------------- | ----------- |
-| 0     | Workspace, tooling, CI                            | done        |
-| 1     | Types, config loading and validation, API client  | done        |
-| 2     | GitHub fetch layer (`RepoContext`) and live rules | done        |
-| 3     | Scoring and report assembly                       | done        |
-| 4     | CLI wired to the fetch layer                      | done        |
-| 5     | GitHub Action (`action.yml`, summary, outputs)    | done        |
-| 6     | CONTRIBUTING, "vs Scorecard" comparison, release  | not started |
+Everything in `TASKS.md` has shipped. What is left is not code:
 
-## Contributing
+- a GitHub Marketplace listing for the Action
+- the post-v1 backlog in [SPEC.md](SPEC.md): a key-CI-freshness rule, a
+  deployment-recency rule, org-wide repository discovery, trend diffing, GitLab
+  support, plus/minus grades
 
-Start with [CONTRIBUTING.md](CONTRIBUTING.md) — it covers setup, the invariants that
-shape review, and a walkthrough for adding a rule. Whether a rule _belongs_ is a
-product question, so please open an issue before building one.
+Adding a rule that is enabled by default changes the grade of repositories that did
+not change, so it costs a major release. See
+[CONTRIBUTING.md](CONTRIBUTING.md#adding-a-rule).
 
-- [DECISIONS.md](DECISIONS.md) — deviations from the specs, and why
-- [ARCHITECTURE.md](ARCHITECTURE.md) — layout, data flow, API strategy, GHES
-- [SCORING.md](SCORING.md) — the normative scoring math and report schema
-- [SECURITY.md](SECURITY.md) — reporting a vulnerability, and what is in scope
-- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
-
-## License
-
-[MIT](LICENSE).
+Design deviations and resolved ambiguities are recorded in
+[DECISIONS.md](DECISIONS.md).

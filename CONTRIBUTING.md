@@ -163,7 +163,10 @@ Two changes are breaking whether or not they look it:
 
 Also:
 
-- Explain **why** in the body. The diff already says what.
+- **Never push to `main`.** Branch, push the branch, open a pull request — `main`
+  requires one, and the release automation reads squashed PR titles.
+- Small, reviewable commits within a branch. Explain **why** in the body; the diff
+  already says what.
 - `pnpm build && pnpm test && pnpm lint && pnpm typecheck` must pass. CI runs the
   same, plus a rebuild of the Action bundle, a check that it still loads, and a live
   scan of this repository with the build under review.
