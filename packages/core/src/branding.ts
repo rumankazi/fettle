@@ -4,7 +4,7 @@
  */
 
 export const TOOL_NAME = 'fettle';
-export const TOOL_VERSION = '2.0.0'; // x-release-please-version
+export const TOOL_VERSION = '2.0.1'; // x-release-please-version
 
 /** The per-repository configuration file we look for on the default branch. */
 export const CONFIG_FILENAME = '.fettle.yml';
