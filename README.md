@@ -4,16 +4,20 @@
 [![CI](https://github.com/rumankazi/fettle/actions/workflows/ci.yml/badge.svg)](https://github.com/rumankazi/fettle/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/%40fettle%2Fcli?logo=npm)](https://www.npmjs.com/package/@fettle/cli)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![marketplace](https://img.shields.io/badge/marketplace-fettle-2ea44f?logo=github)](https://github.com/marketplace/actions/fettle-repository-health-grade)
 
 Grade the maintenance health of your GitHub repositories — five explainable rules,
 weighted scoring, a letter grade, and evidence for every result.
 
-That first badge is this repository's own grade, produced by this tool. It is not
-flattering, which is rather the point — the report says exactly why.
+That first badge is this repository's own grade, produced by this tool on every push
+to `main`. It is a real five-rule score, not an average with the awkward checks
+excluded — the report says exactly how each one was reached.
 
-> **v1.0.0.** The report schema is now a contract: `HealthReport` changes additively
-> or the `schemaVersion` goes up. Published on npm; not yet listed on the GitHub
-> Marketplace.
+> **v2.0.0** — on [npm](https://www.npmjs.com/package/@fettle/cli) and the
+> [GitHub Marketplace](https://github.com/marketplace/actions/fettle-repository-health-grade).
+> The report schema is a contract: `HealthReport` changes additively, or
+> `schemaVersion` goes up. See [SCORING.md §6](SCORING.md) for exactly what that
+> covers.
 
 ## What it measures
 
@@ -60,7 +64,7 @@ jobs:
   health:
     runs-on: ubuntu-latest
     steps:
-      - uses: rumankazi/fettle@v1
+      - uses: rumankazi/fettle@v2
         id: health
         with:
           fail-below: C # optional gate
@@ -310,12 +314,9 @@ pnpm cli -- --help
 
 ## Roadmap
 
-Everything in `TASKS.md` has shipped. What is left is not code:
-
-- a GitHub Marketplace listing for the Action
-- the post-v1 backlog in [SPEC.md](SPEC.md): a key-CI-freshness rule, a
-  deployment-recency rule, org-wide repository discovery, trend diffing, GitLab
-  support, plus/minus grades
+Shipped, published and listed. What is left is product, not plumbing — the post-v1
+backlog in [SPEC.md](SPEC.md): a key-CI-freshness rule, a deployment-recency rule,
+org-wide repository discovery, trend diffing, GitLab support, plus/minus grades.
 
 Adding a rule that is enabled by default changes the grade of repositories that did
 not change, so it costs a major release. See
