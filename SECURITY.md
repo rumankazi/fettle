@@ -45,32 +45,12 @@ surface is small but real:
 
 ## Accepted advisories
 
-`pnpm audit` runs weekly in CI and fails on `high` or above. A small number of
-advisories are accepted rather than fixed, listed in `pnpm.auditConfig.ignoreGhsas`
-in the root `package.json`. Each one is recorded here with why, and what would make
-us revisit it. Nothing is accepted silently.
+None. `pnpm audit` runs weekly in CI and fails on `high` or above, with nothing on
+an ignore list.
 
-### GHSA-vrm6-8vpv-qv8q, GHSA-v9p9-hfj2-hcw8, GHSA-vxpw-j846-p89q — `undici` WebSocket client
-
-`undici@5` reaches us four levels down: `@actions/core` → `@actions/http-client` →
-`undici`. All three advisories are denial-of-service issues in undici's **WebSocket
-client**.
-
-**Why accepted:** we open no WebSocket. `@actions/http-client` is used by
-`@actions/core` only for `getIDToken()`, which we never call, and our own HTTP goes
-through Octokit and the platform `fetch`. The affected code is bundled but
-unreachable.
-
-**What is genuinely true and unresolved:** the code ships anyway.
-`packages/action/dist/index.js` carries undici, `@actions/exec`, `@actions/io`,
-`@fastify/busboy` and `tunnel` — around 750 kB of the 1 MB bundle — so that we can
-use six functions from `@actions/core`: `getInput`, `setOutput`, `info`, `warning`,
-`setFailed` and `summary`. Each is a thin wrapper over a documented runner protocol.
-
-**Revisit when:** `@actions/core` ships a release depending on `undici >= 6.27.0`,
-or we implement `ActionRuntime` against the runner protocol directly and drop the
-dependency. The latter would remove this entry and roughly three quarters of the
-bundle.
+If that ever changes, each accepted advisory belongs here with why it is accepted
+and what would make us revisit it, and its id in `pnpm.auditConfig.ignoreGhsas`.
+Nothing is accepted silently.
 
 ## Supported versions
 

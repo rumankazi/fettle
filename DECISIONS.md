@@ -411,3 +411,41 @@ The SVG is about sixty lines and one approximation: text width is estimated rath
 than measured against real font metrics, because the alternative is shipping a
 metrics table to place eleven characters. Being a pixel out moves text within its
 box; it does not break the badge.
+
+## D30 — `@actions/core` was removed rather than upgraded
+
+`packages/action/src/runtime.ts` implements the runner protocol directly. The
+Action has no runtime dependency on `@actions/core`.
+
+**Why:** it brought `@actions/exec`, `@actions/io`, `@actions/http-client`,
+`tunnel`, `@fastify/busboy` and `undici` with it — roughly three quarters of the
+bundle shipped to consumers, and three high-severity advisories in WebSocket code
+this project never calls — in exchange for six functions. Upgrading to v3 would have
+cleared the advisories, but not the surface: every one of those packages is
+executable code we hand to anyone who uses the Action, and none of it is reachable.
+
+The six replacements are documented file and stdout conventions, about eighty lines
+in total, which is the test the dependency budget already sets. The bundle went from
+1.0 MB to 236 kB and `SECURITY.md` no longer has an accepted-advisories section —
+`pnpm audit` passes with nothing on an ignore list.
+
+Replacing a well-tested library with our own code earns its own tests, so
+`runtime.test.ts` covers the parts that fail silently rather than loudly: the
+`$GITHUB_OUTPUT` heredoc and its delimiter, input name mapping, and command
+escaping — a newline in evidence from a scanned repository must not be able to
+forge a workflow command.
+
+## D31 — Badges are published to a branch, not committed to the default branch
+
+`health.yml` pushes both badge files to an orphan `badges` branch, and the README
+points at the raw URL rather than a relative path.
+
+**Why:** a relative path is tidier and is what the README recommends first — but it
+requires the badge to be committed to the default branch, and a ruleset requiring
+pull requests stops a workflow doing that. This repository has exactly such a
+ruleset, so it is also the worked example for the fallback. Both approaches are
+documented, with the constraint that decides between them stated rather than left
+to be discovered.
+
+GitHub serves `.svg` from `raw.githubusercontent.com` as `image/svg+xml`, so the
+absolute form renders in a README without shields.io in the path.

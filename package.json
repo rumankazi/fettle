@@ -27,14 +27,5 @@
     "typescript": "^5.7.0",
     "vite": "^8.2.1",
     "vitest": "^4.1.10"
-  },
-  "pnpm": {
-    "auditConfig": {
-      "ignoreGhsas": [
-        "GHSA-vrm6-8vpv-qv8q",
-        "GHSA-v9p9-hfj2-hcw8",
-        "GHSA-vxpw-j846-p89q"
-      ]
-    }
   }
 }

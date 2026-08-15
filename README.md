@@ -1,6 +1,6 @@
 # Fettle
 
-[![repo health](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Frumankazi%2Ffettle%2Fbadges%2Frumankazi__fettle.json)](https://github.com/rumankazi/fettle/actions/workflows/health.yml)
+[![repo health](https://raw.githubusercontent.com/rumankazi/fettle/badges/rumankazi__fettle.svg)](https://github.com/rumankazi/fettle/actions/workflows/health.yml)
 [![CI](https://github.com/rumankazi/fettle/actions/workflows/ci.yml/badge.svg)](https://github.com/rumankazi/fettle/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/%40fettle%2Fcli?logo=npm)](https://www.npmjs.com/package/@fettle/cli)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
@@ -101,32 +101,42 @@ The Action writes two badges per repository into `<output-dir>/badge/`:
 
 | File               | What it is                                                                |
 | ------------------ | ------------------------------------------------------------------------- |
-| `OWNER__REPO.svg`  | the finished badge, self-contained                                        |
+| `OWNER__REPO.svg`  | the finished badge, self-contained — nothing is fetched to display it     |
 | `OWNER__REPO.json` | a [shields.io endpoint](https://shields.io/badges/endpoint-badge) payload |
 
-**Use the SVG unless you have a reason not to.** Commit it and point at it with a
-relative path:
+**Prefer the SVG.** It renders on a private repository, on GitHub Enterprise Server
+and behind a corporate proxy, because displaying it involves no third party. The
+shields.io payload only works where shields.io itself can reach the file over the
+public internet — so not private repositories, and not GHES.
+
+Either way the file has to live somewhere your README can point at, and where that
+is depends on whether a workflow can write to your default branch.
+
+**If it can** — no ruleset requiring pull requests — commit the SVG into the tree
+and use a relative path, which is the tidiest result:
 
 ```markdown
 ![repo health](.github/badges/OWNER__REPO.svg)
 ```
 
-That renders on a private repository, on GitHub Enterprise Server, and behind a
-corporate proxy, because nothing external is fetched when someone views your README.
+**If it cannot** — which is the common case for a protected `main`, including this
+repository — publish to a separate branch instead and point at the raw URL. GitHub
+serves `.svg` as `image/svg+xml`, so it renders in a README:
 
-The shields.io payload is the alternative, and it has a real limitation worth
-knowing before you pick it: **shields.io fetches the file itself**, so the URL must
-be reachable from the public internet. That rules out private repositories, and
-GHES entirely. Where it does apply, publish the JSON somewhere raw — this repository
-pushes it to an orphan `badges` branch, see
-[`.github/workflows/health.yml`](.github/workflows/health.yml) — and reference it:
+```markdown
+![repo health](https://raw.githubusercontent.com/OWNER/REPO/badges/OWNER__REPO.svg)
+```
+
+[`.github/workflows/health.yml`](.github/workflows/health.yml) is a working copy of
+the second approach: it pushes both files to an orphan `badges` branch after each
+scan, using `GITHUB_TOKEN` precisely because that token starts no workflow runs. The
+badge at the top of this README is that file.
+
+For the shields.io route on a public repository, point it at the JSON instead:
 
 ```
 https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/OWNER/REPO/badges/OWNER__REPO.json
 ```
-
-Either way, keep the badge off `main` or commit it from the same workflow that
-produces it; a grade that changes on its own should not churn your history.
 
 ## Quick start: the CLI
 
