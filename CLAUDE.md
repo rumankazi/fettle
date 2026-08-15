@@ -10,18 +10,21 @@ Read these documents in order before writing any code:
 2. `ARCHITECTURE.md` — package layout, data flow, API strategy, GHES support.
 3. `SCORING.md` — the exact scoring math, config schema, and report schema. This file
    is normative: implement it exactly, do not improvise.
-4. `TASKS.md` — the phased implementation plan. Work through phases in order. Do not
-   start a phase before the previous phase's acceptance criteria pass.
+4. `TASKS.md` — the phased implementation plan. All six phases have shipped; it is
+   kept for the post-v1 backlog and as the record of what was built when.
+5. `DECISIONS.md` — every deviation from the above and why. Read before concluding
+   that something contradicts the spec; it probably does, deliberately.
 
 ## Project invariants (never violate these)
 
 - **The report JSON schema is the public API.** Any change to `HealthReport` after
   v1 must be additive. Breaking changes require bumping `schemaVersion`. Never
   rename or remove a field casually.
-- **Minimal runtime dependencies.** Allowed runtime deps: `@actions/core`,
-  `@octokit/core` (+ official octokit plugins), `js-yaml`. Anything else requires a
-  written justification as a comment in `package.json` explaining why it cannot be
-  ~30 lines of our own code. Dev dependencies are unrestricted within reason.
+- **Minimal runtime dependencies.** Allowed runtime deps: `@octokit/core` (+ official
+  octokit plugins) and `js-yaml`. That is the whole list and CI enforces it.
+  Anything else requires a written justification explaining why it cannot be ~30
+  lines of our own code — `@actions/core` was removed on exactly that test (see
+  DECISIONS D30). Dev dependencies are unrestricted within reason.
 - **No runtime installs.** The Action ships a bundled `dist/index.js` committed to
   the repo (esbuild). Consumers never run `npm install`.
 - **Works on github.com AND GitHub Enterprise Server.** Never hardcode
@@ -68,7 +71,13 @@ pnpm cli -- <args>    # run the CLI from source against a real repo
 
 ## Working style
 
-- Small, reviewable commits per task, message format: `phase-N: <what>`.
+- **Never push to `main`.** Branch, push the branch, open a pull request. `main` is
+  protected by a ruleset requiring pull requests, and the release automation reads
+  squashed PR titles.
+- Pull requests are squash-merged, so **the PR title is the commit subject and the
+  only input to versioning**. It must be a Conventional Commit — `feat:` minor,
+  `fix:` patch, `!` or `BREAKING CHANGE:` major. CI checks it.
+- Small, reviewable commits within a branch.
 - When SPEC/SCORING is ambiguous, choose the simplest interpretation, implement it,
   and record the decision in `DECISIONS.md` (create it) rather than blocking.
 - Update `README.md` as functionality lands; the Quick Start must always reflect

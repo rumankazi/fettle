@@ -1,5 +1,9 @@
 # TASKS.md — Implementation Plan
 
+**All six phases shipped in v1.0.0.** This file is kept as the record of what was
+built, and for the backlog at the bottom. Deviations made along the way are in
+[DECISIONS.md](DECISIONS.md).
+
 Work phases strictly in order. A phase is done only when its acceptance criteria
 pass and `pnpm build && pnpm test && pnpm lint` is green.
 
