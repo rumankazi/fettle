@@ -80,6 +80,11 @@
       automerge: true,
     },
     {
+      description: 'typescript-eslint refuses to run against a TypeScript it does not support, so TypeScript cannot move ahead of it. Remove this once a typescript-eslint release supports TS 7.',
+      matchPackageNames: ['typescript'],
+      allowedVersions: '<7',
+    },
+    {
       description: 'Major bumps wait for someone to ask for them on the dependency dashboard, rather than arriving unannounced.',
       matchUpdateTypes: ['major'],
       dependencyDashboardApproval: true,

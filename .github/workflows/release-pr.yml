@@ -1,8 +1,9 @@
-name: Release pull request
+name: Rebuild the committed bundle
 
-# The Action's version is baked into its committed bundle, so a version bump makes
-# that bundle stale. Release-please cannot rebuild it — it only edits text — so this
-# does, on the release pull request, before anyone merges it.
+# The committed Action bundle goes stale whenever anything that produces it changes:
+# a version bump from release-please, or an esbuild upgrade from Renovate, which
+# emits subtly different output. Neither bot can rebuild it — they only edit text —
+# so this does, on their pull requests, before anyone merges.
 #
 # CI skips its bundle-freshness check on these branches for the same reason. This
 # job replaces it, and runs the full check suite *after* the rebuild so what gets
@@ -26,7 +27,9 @@ concurrency:
 jobs:
   rebuild-bundle:
     name: Rebuild the Action bundle
-    if: startsWith(github.head_ref, 'release-please--')
+    if: >-
+      startsWith(github.head_ref, 'release-please--') ||
+      startsWith(github.head_ref, 'renovate/')
     runs-on: ubuntu-latest
     permissions:
       contents: write # push the rebuilt bundle back to the release pull request
