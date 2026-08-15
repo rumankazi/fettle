@@ -118,16 +118,19 @@ jobs:
             exit 1
           fi
 
-      - name: Verify the tag matches the package version
+      # Compare against release-please's own version output rather than parsing the
+      # tag. Tag formats are configuration and have already changed once; the
+      # version is the thing this actually needs to agree on.
+      - name: Verify the release version matches the packages
+        env:
+          RELEASE_VERSION: ${{ needs.release-please.outputs.version }}
         run: |
-          tag="${TAG#v}"
           version=$(node -p "require('./packages/core/package.json').version")
-          if [ "$tag" != "$version" ]; then
-            echo "::error::tag $TAG does not match package version $version."
+          if [ "$version" != "$RELEASE_VERSION" ]; then
+            echo "::error::release $RELEASE_VERSION does not match package version $version."
             exit 1
           fi
-        env:
-          TAG: ${{ needs.release-please.outputs.tag }}
+          echo "Publishing version $version."
 
       # pnpm packs — it is the only thing that knows how to rewrite `workspace:*`
       # into a real version — and npm publishes, because npm is what performs the
