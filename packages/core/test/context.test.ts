@@ -436,27 +436,25 @@ describe('fetchRepoContext: request budget', () => {
 });
 
 describe('createRepoFileReader', () => {
-  const CONFIG_ROUTE = 'GET /repos/acme/demo/contents/.repohealth.yml';
+  const CONFIG_ROUTE = 'GET /repos/acme/demo/contents/.fettle.yml';
 
   it('decodes a base64 file', async () => {
     const transport = createTransport({ [CONFIG_ROUTE]: { body: fixture('config-file') } });
     const read = createRepoFileReader(transport.client, REPO, 'main');
 
-    expect(await read('.repohealth.yml')).toBe('rules:\n  codeowners:\n    weight: 5\n');
+    expect(await read('.fettle.yml')).toBe('rules:\n  codeowners:\n    weight: 5\n');
   });
 
   it('requests the branch being scanned', async () => {
     const transport = createTransport({ [CONFIG_ROUTE]: { body: fixture('config-file') } });
-    await createRepoFileReader(transport.client, REPO, 'release')('.repohealth.yml');
+    await createRepoFileReader(transport.client, REPO, 'release')('.fettle.yml');
 
     expect(transport.calls[0].path).toContain('ref=release');
   });
 
   it('returns null when there is no config file', async () => {
     const transport = createTransport({});
-    expect(
-      await createRepoFileReader(transport.client, REPO, 'main')('.repohealth.yml'),
-    ).toBeNull();
+    expect(await createRepoFileReader(transport.client, REPO, 'main')('.fettle.yml')).toBeNull();
   });
 
   it('returns null when the path is a directory', async () => {
@@ -464,9 +462,7 @@ describe('createRepoFileReader', () => {
       [CONFIG_ROUTE]: { body: [{ name: 'a.yml', type: 'file' }] },
     });
 
-    expect(
-      await createRepoFileReader(transport.client, REPO, 'main')('.repohealth.yml'),
-    ).toBeNull();
+    expect(await createRepoFileReader(transport.client, REPO, 'main')('.fettle.yml')).toBeNull();
   });
 
   it('returns null for a file too large to be inlined', async () => {
@@ -474,15 +470,13 @@ describe('createRepoFileReader', () => {
       [CONFIG_ROUTE]: { body: { type: 'file', encoding: 'none', content: '', size: 2_000_000 } },
     });
 
-    expect(
-      await createRepoFileReader(transport.client, REPO, 'main')('.repohealth.yml'),
-    ).toBeNull();
+    expect(await createRepoFileReader(transport.client, REPO, 'main')('.fettle.yml')).toBeNull();
   });
 
   it('surfaces an authorisation failure rather than silently using the defaults', async () => {
     const transport = createTransport({ [CONFIG_ROUTE]: FORBIDDEN });
     await expect(
-      createRepoFileReader(transport.client, REPO, 'main')('.repohealth.yml'),
+      createRepoFileReader(transport.client, REPO, 'main')('.fettle.yml'),
     ).rejects.toThrow();
   });
 });

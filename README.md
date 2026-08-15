@@ -55,10 +55,10 @@ the table above to the job summary.
 | ------------- | --------------------- | -------------------------------------------------------------------- |
 | `repos`       | the current repo      | `org/name`, comma- or newline-separated.                             |
 | `token`       | `${{ github.token }}` | See [Token permissions](#token-permissions).                         |
-| `config-path` | `.repohealth.yml`     | Config file read from each scanned repository.                       |
+| `config-path` | `.fettle.yml`         | Config file read from each scanned repository.                       |
 | `fail-below`  | —                     | Fail the step below this grade: `A`–`F`. `N/A` never trips it.       |
 | `report-url`  | —                     | POST the JSON report here. A failure is a warning, not a failed run. |
-| `output-dir`  | `repohealth-report`   | Where `report.json` and `badge/<repo>.json` are written.             |
+| `output-dir`  | `fettle-report`       | Where `report.json` and `badge/<repo>.json` are written.             |
 
 ### Outputs
 
@@ -73,7 +73,7 @@ so retention stays your choice.
 Point shields.io at a badge file your workflow has published:
 
 ```
-https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/acme/demo/badges/repohealth-report/badge/acme__demo.json
+https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/acme/demo/badges/fettle-report/badge/acme__demo.json
 ```
 
 ## Quick start: the CLI
@@ -132,7 +132,7 @@ look at a value without deciding what to do when it is missing.
 
 ## Configuration
 
-Drop a `.repohealth.yml` on the default branch of any repository you scan. Every
+Drop a `.fettle.yml` on the default branch of any repository you scan. Every
 field is optional; these are the defaults:
 
 ```yaml
@@ -220,7 +220,7 @@ authentication, so the two pull request rules will report `na`.
 ## Cost and limits
 
 A scan costs about eight requests per repository: one for metadata, up to three to
-walk the file tree, one or two for branch protection, one for `.repohealth.yml`, and
+walk the file tree, one or two for branch protection, one for `.fettle.yml`, and
 one GraphQL query for pull requests.
 
 Two caps are worth knowing about. Pull request pagination stops after 500 open PRs

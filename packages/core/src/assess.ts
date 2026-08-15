@@ -35,10 +35,10 @@ export interface AssessOptions {
   client?: GitHubClient;
   /**
    * Configuration to apply to every repository, instead of reading
-   * `.repohealth.yml` from each one. Useful for scanning a fleet under one policy.
+   * `.fettle.yml` from each one. Useful for scanning a fleet under one policy.
    */
   config?: ConfigInput;
-  /** Where to look for per-repository configuration. Defaults to `.repohealth.yml`. */
+  /** Where to look for per-repository configuration. Defaults to `.fettle.yml`. */
   configPath?: string;
   /** Evaluation instant, so a whole fleet is graded against one clock. */
   now?: Date;
@@ -78,7 +78,7 @@ function resolveClient(options: AssessOptions): GitHubClient {
  * Scans one repository, named `org/name`, and returns its rule results.
  *
  * @throws {RepoAccessError} when the repository cannot be read at all.
- * @throws {ConfigError} when its `.repohealth.yml` is invalid.
+ * @throws {ConfigError} when its `.fettle.yml` is invalid.
  */
 export async function assessRepo(
   repo: string,
@@ -128,7 +128,7 @@ async function loadRepoConfig(
  * Scans one or more repositories and assembles the report.
  *
  * @throws {RepoAccessError} when a repository cannot be read at all.
- * @throws {ConfigError} when a `.repohealth.yml` is invalid.
+ * @throws {ConfigError} when a `.fettle.yml` is invalid.
  */
 export async function assess(
   repos: readonly string[],

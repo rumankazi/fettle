@@ -1,6 +1,6 @@
 /**
  * Configuration: the shipped defaults, and the parse/validate/merge pipeline that
- * turns a user's `.repohealth.yml` into settings the rules can consume.
+ * turns a user's `.fettle.yml` into settings the rules can consume.
  *
  * Defaults live here and only here — rules receive fully resolved settings and so
  * carry no fallbacks of their own.
@@ -10,7 +10,7 @@ import { load as parseYaml, YAMLException } from 'js-yaml';
 import { CONFIG_FILENAME } from './branding.js';
 import type { ConfigInput, ResolvedConfig, RuleId } from './types.js';
 
-/** The defaults from SCORING.md §5, applied when no `.repohealth.yml` is found. */
+/** The defaults from SCORING.md §5, applied when no `.fettle.yml` is found. */
 export const defaultConfig: ResolvedConfig = Object.freeze({
   version: 1,
   rules: Object.freeze({
@@ -216,7 +216,7 @@ export function resolveConfig(input?: ConfigInput | null): ConfigResolution {
 }
 
 /**
- * Parses `.repohealth.yml` text and resolves it against the defaults.
+ * Parses `.fettle.yml` text and resolves it against the defaults.
  *
  * @throws {ConfigError} on malformed YAML or invalid settings.
  */

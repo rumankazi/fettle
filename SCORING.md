@@ -50,10 +50,10 @@ A ≥ 90   B ≥ 80   C ≥ 70   D ≥ 60   F < 60
 
 Boundary values take the higher grade (exactly 80.0 → B). No plus/minus in v1.
 
-## 5. Default configuration (shipped in core, used when no .repohealth.yml found)
+## 5. Default configuration (shipped in core, used when no .fettle.yml found)
 
 ```yaml
-# .repohealth.yml — all fields optional; these are the defaults
+# .fettle.yml — all fields optional; these are the defaults
 version: 1
 rules:
   branch_protection:
@@ -79,7 +79,7 @@ rules:
     inactive_days: 7 # …and stale if last commit is older than this
 ```
 
-Config resolution: fetch `.repohealth.yml` from the scanned repo's default branch;
+Config resolution: fetch `.fettle.yml` from the scanned repo's default branch;
 deep-merge over defaults; validate (unknown keys → warning; type errors → hard fail
 with a message quoting the offending path). `enabled: false` behaves exactly like
 `na` for scoring (excluded from both sums) but is reported with status `disabled`.
@@ -89,7 +89,7 @@ with a message quoting the offending path). `enabled: false` behaves exactly lik
 ```jsonc
 {
   "schemaVersion": 1,
-  "tool": { "name": "repohealth", "version": "1.0.0" },
+  "tool": { "name": "fettle", "version": "1.0.0" },
   "generatedAt": "2026-08-15T09:30:00Z",
   "repos": [
     {

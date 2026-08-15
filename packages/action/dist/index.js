@@ -21486,8 +21486,9 @@ function evaluateRules(ctx, settings) {
 // ../core/src/branding.ts
 var TOOL_NAME = "fettle";
 var TOOL_VERSION = "0.1.0";
-var CONFIG_FILENAME = ".repohealth.yml";
+var CONFIG_FILENAME = ".fettle.yml";
 var BADGE_LABEL = "repo health";
+var DEFAULT_OUTPUT_DIR = "fettle-report";
 
 // ../core/src/report.ts
 var GRADE_COLORS = {
@@ -26416,8 +26417,6 @@ async function assess(repos, options = {}) {
 }
 
 // src/action.ts
-var DEFAULT_CONFIG_PATH = ".repohealth.yml";
-var DEFAULT_OUTPUT_DIR = "repohealth-report";
 var REPORT_POST_TIMEOUT_MS = 1e4;
 var InputError = class extends Error {
   constructor(message2) {
@@ -26451,7 +26450,7 @@ function readInputs(runtime) {
   return {
     repos,
     token: optional(runtime.getInput("token")),
-    configPath: optional(runtime.getInput("config-path")) ?? DEFAULT_CONFIG_PATH,
+    configPath: optional(runtime.getInput("config-path")) ?? CONFIG_FILENAME,
     failBelow: failBelowInput,
     reportUrl: optional(runtime.getInput("report-url")),
     outputDir: optional(runtime.getInput("output-dir")) ?? DEFAULT_OUTPUT_DIR

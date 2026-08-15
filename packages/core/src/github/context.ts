@@ -494,7 +494,7 @@ export async function fetchRepoContext(
 }
 
 /**
- * A `ConfigReader` backed by a repository, for reading `.repohealth.yml` from the
+ * A `ConfigReader` backed by a repository, for reading `.fettle.yml` from the
  * branch being scanned.
  *
  * Returns `null` for anything that is not a readable file, so a missing config

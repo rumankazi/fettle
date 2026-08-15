@@ -20,7 +20,7 @@ Nothing gives a simple, configurable, self-hosted maintenance grade.
   README will carry an explicit "vs Scorecard" comparison table.
 - **Plug and play.** Works with the default `GITHUB_TOKEN` where permissions allow;
   degrades gracefully with instructions where they don't. Sensible defaults; a
-  `.repohealth.yml` only for teams that want to tune.
+  `.fettle.yml` only for teams that want to tune.
 - **Runs in the user's own infrastructure.** github.com and GHES. No hosted service,
   no data leaves the user's environment.
 - **Explainable.** Five rules, additive weighted scoring, every result carries

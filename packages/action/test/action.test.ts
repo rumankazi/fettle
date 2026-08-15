@@ -1,5 +1,14 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { load } from 'js-yaml';
 import { describe, expect, it } from 'vitest';
-import { buildHealthReport, type RepoAssessment, type RuleResult } from '@fettle/core';
+import {
+  buildHealthReport,
+  CONFIG_FILENAME,
+  DEFAULT_OUTPUT_DIR,
+  type RepoAssessment,
+  type RuleResult,
+} from '@fettle/core';
 import { readInputs, runAction, type ActionRuntime, type Scanner } from '../src/action.js';
 
 const NOW = new Date('2026-08-15T09:30:00.000Z');
@@ -99,8 +108,8 @@ describe('readInputs', () => {
 
   it('applies the documented defaults', () => {
     const inputs = readInputs(fakeRuntime({ repos: 'acme/demo' }));
-    expect(inputs.configPath).toBe('.repohealth.yml');
-    expect(inputs.outputDir).toBe('repohealth-report');
+    expect(inputs.configPath).toBe('.fettle.yml');
+    expect(inputs.outputDir).toBe('fettle-report');
     expect(inputs.failBelow).toBeUndefined();
     expect(inputs.reportUrl).toBeUndefined();
   });
@@ -136,22 +145,22 @@ describe('runAction', () => {
   it('writes report.json to the output directory', async () => {
     const runtime = await run({ repos: 'acme/demo' });
 
-    const report = JSON.parse(runtime.files['repohealth-report/report.json']);
+    const report = JSON.parse(runtime.files['fettle-report/report.json']);
     expect(report.schemaVersion).toBe(1);
     expect(report.repos[0].repo).toBe('acme/demo');
-    expect(runtime.files['repohealth-report/report.json'].endsWith('\n')).toBe(true);
+    expect(runtime.files['fettle-report/report.json'].endsWith('\n')).toBe(true);
   });
 
   it('writes one shields.io badge payload per repository', async () => {
     const runtime = await run({ repos: 'acme/demo,acme/other' });
 
-    expect(JSON.parse(runtime.files['repohealth-report/badge/acme__demo.json'])).toEqual({
+    expect(JSON.parse(runtime.files['fettle-report/badge/acme__demo.json'])).toEqual({
       schemaVersion: 1,
       label: 'repo health',
       message: 'A (95.0)',
       color: 'brightgreen',
     });
-    expect(runtime.files['repohealth-report/badge/acme__other.json']).toBeDefined();
+    expect(runtime.files['fettle-report/badge/acme__other.json']).toBeDefined();
   });
 
   it('honours a custom output directory', async () => {
@@ -175,7 +184,7 @@ describe('runAction', () => {
     expect(runtime.outputs).toEqual({
       grade: 'B',
       score: '83',
-      'report-path': 'repohealth-report/report.json',
+      'report-path': 'fettle-report/report.json',
     });
   });
 
@@ -276,7 +285,7 @@ describe('runAction: the grade floor', () => {
     );
 
     expect(runtime.failures).toHaveLength(1);
-    expect(runtime.files['repohealth-report/report.json']).toBeDefined();
+    expect(runtime.files['fettle-report/report.json']).toBeDefined();
     expect(runtime.summaries).toHaveLength(1);
     expect(runtime.outputs.grade).toBe('F');
   });
@@ -390,5 +399,56 @@ describe('runAction: failures', () => {
     );
 
     expect(seen).toEqual({ token: 'secret', configPath: '.github/health.yml' });
+  });
+});
+
+describe('action.yml', () => {
+  /**
+   * The manifest cannot import a constant, so its defaults are the one place the
+   * names are duplicated. This test is what keeps the two in step.
+   */
+  const manifest = load(
+    readFileSync(fileURLToPath(new URL('../action.yml', import.meta.url)), 'utf8'),
+  ) as {
+    inputs: Record<string, { default?: string; description?: string; required?: boolean }>;
+    outputs: Record<string, { description?: string }>;
+    runs: { using?: string; main?: string };
+    branding?: { icon?: string; color?: string };
+  };
+
+  it('declares the same defaults the code falls back to', () => {
+    expect(manifest.inputs['config-path'].default).toBe(CONFIG_FILENAME);
+    expect(manifest.inputs['output-dir'].default).toBe(DEFAULT_OUTPUT_DIR);
+  });
+
+  it('declares every input the Action reads', () => {
+    expect(Object.keys(manifest.inputs).sort()).toEqual([
+      'config-path',
+      'fail-below',
+      'output-dir',
+      'report-url',
+      'repos',
+      'token',
+    ]);
+  });
+
+  it('declares the documented outputs', () => {
+    expect(Object.keys(manifest.outputs).sort()).toEqual(['grade', 'report-path', 'score']);
+  });
+
+  it('points at the committed bundle and carries Marketplace branding', () => {
+    expect(manifest.runs.using).toBe('node20');
+    expect(manifest.runs.main).toBe('dist/index.js');
+    expect(manifest.branding?.icon).toBeTruthy();
+    expect(manifest.branding?.color).toBeTruthy();
+  });
+
+  it('describes every input and output, since these are the Marketplace listing', () => {
+    for (const [name, input] of Object.entries(manifest.inputs)) {
+      expect(input.description, `input ${name}`).toBeTruthy();
+    }
+    for (const [name, output] of Object.entries(manifest.outputs)) {
+      expect(output.description, `output ${name}`).toBeTruthy();
+    }
   });
 });

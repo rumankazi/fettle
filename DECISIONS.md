@@ -204,3 +204,27 @@ exactly that repository's score, so one rule covers both without a special case.
 Per-repository grades are in `report.json` and the job summary. Note that `--fail-below`
 deliberately does _not_ use the average: it checks every repository individually, so
 one healthy repository cannot mask a rotten one.
+
+## D19 — The product name is `fettle` in user-facing paths too
+
+The config file is `.fettle.yml` and the Action's default output directory is
+`fettle-report/`. The specification documents were written under an earlier working
+name, `repohealth`, and have been updated to match.
+
+**Why:** `SPEC.md` and friends are normative on behaviour, not on a name the owner
+has since settled. Leaving `.repohealth.yml` in place would have left the published
+config filename — a contract users write into their repositories — disagreeing with
+the product, the package names and the CLI binary.
+
+No compatibility shim reads the old filename: nothing has been released, so there is
+no user with a `.repohealth.yml` to support. Adding a fallback for a name that never
+shipped would be permanent complexity bought for nobody.
+
+`CONFIG_FILENAME` and `DEFAULT_OUTPUT_DIR` live in `branding.ts` and are imported by
+the Action rather than restated. `action.yml` cannot import a constant, so its
+defaults are the one remaining duplicate — a test parses the manifest and asserts
+they still agree.
+
+**The badge label stays "repo health".** It names the metric, the way shields
+badges elsewhere read "coverage" or "build", rather than the product. It is one
+constant (`BADGE_LABEL`) if that judgement is ever reversed.

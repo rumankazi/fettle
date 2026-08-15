@@ -7,7 +7,15 @@ export const TOOL_NAME = 'fettle';
 export const TOOL_VERSION = '0.1.0';
 
 /** The per-repository configuration file we look for on the default branch. */
-export const CONFIG_FILENAME = '.repohealth.yml';
+export const CONFIG_FILENAME = '.fettle.yml';
 
-/** Label shown on the shields.io badge. */
+/**
+ * Label shown on the shields.io badge.
+ *
+ * Deliberately the metric rather than the product name, matching how shields
+ * badges read elsewhere ("coverage", "build", "downloads").
+ */
 export const BADGE_LABEL = 'repo health';
+
+/** Where the Action writes `report.json` and `badge/<repo>.json` by default. */
+export const DEFAULT_OUTPUT_DIR = 'fettle-report';

@@ -24,7 +24,7 @@ inputs:
   config-path:
     description: 'Path to the config file read from each scanned repository.'
     required: false
-    default: '.repohealth.yml'
+    default: '.fettle.yml'
   fail-below:
     description: |
       Fail the step if any repository grades below this floor: A, B, C, D or F.
@@ -40,7 +40,7 @@ inputs:
   output-dir:
     description: 'Directory for `report.json` and `badge/<repo>.json`.'
     required: false
-    default: 'repohealth-report'
+    default: 'fettle-report'
 
 outputs:
   grade:

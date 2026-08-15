@@ -11,7 +11,13 @@ import { buildHealthReport, buildRepoReport, type RepoAssessment } from './repor
 import type { HealthReport, RepoContext, RepoReport, ResolvedConfig } from './types.js';
 
 export { assess, assessRepo, type AssessOptions } from './assess.js';
-export { BADGE_LABEL, CONFIG_FILENAME, TOOL_NAME, TOOL_VERSION } from './branding.js';
+export {
+  BADGE_LABEL,
+  CONFIG_FILENAME,
+  DEFAULT_OUTPUT_DIR,
+  TOOL_NAME,
+  TOOL_VERSION,
+} from './branding.js';
 export {
   ConfigError,
   defaultConfig,
@@ -74,7 +80,7 @@ export function assessContext(ctx: RepoContext, config: ResolvedConfig): RepoRep
 /**
  * Scores a fleet of already-fetched repository contexts into one report.
  *
- * Each repository carries its own resolved config, since `.repohealth.yml` is read
+ * Each repository carries its own resolved config, since `.fettle.yml` is read
  * from the repository being scanned.
  */
 export function assessContexts(

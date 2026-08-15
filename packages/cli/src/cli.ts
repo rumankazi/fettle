@@ -210,7 +210,7 @@ function describe(error: unknown): string {
 /**
  * Loads the `--config` file, if one was given.
  *
- * A local file replaces each repository's own `.repohealth.yml`, which is how one
+ * A local file replaces each repository's own `.fettle.yml`, which is how one
  * policy gets applied across a fleet.
  */
 async function readLocalConfig(

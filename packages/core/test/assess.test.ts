@@ -88,9 +88,9 @@ describe('assessRepo', () => {
     }
   });
 
-  it('reads .repohealth.yml from the branch being scanned', async () => {
+  it('reads .fettle.yml from the branch being scanned', async () => {
     const transport = scan({
-      'GET /repos/acme/demo/contents/.repohealth.yml': { body: fixture('config-file') },
+      'GET /repos/acme/demo/contents/.fettle.yml': { body: fixture('config-file') },
     });
 
     const assessment = await assessRepo('acme/demo', { client: transport.client, now: NOW });
@@ -109,7 +109,7 @@ describe('assessRepo', () => {
 
   it('applies an explicit config instead of fetching the repository one', async () => {
     const transport = scan({
-      'GET /repos/acme/demo/contents/.repohealth.yml': { body: fixture('config-file') },
+      'GET /repos/acme/demo/contents/.fettle.yml': { body: fixture('config-file') },
     });
 
     const assessment = await assessRepo('acme/demo', {
@@ -119,13 +119,13 @@ describe('assessRepo', () => {
     });
 
     expect(assessment.rules.find((rule) => rule.id === 'codeowners')?.weight).toBe(9);
-    expect(transport.calls.some((call) => call.path.includes('.repohealth.yml'))).toBe(false);
+    expect(transport.calls.some((call) => call.path.includes('.fettle.yml'))).toBe(false);
   });
 
   it('surfaces configuration warnings against the repository they came from', async () => {
     const yaml = 'rules:\n  no_such_rule:\n    weight: 2\n';
     const transport = scan({
-      'GET /repos/acme/demo/contents/.repohealth.yml': {
+      'GET /repos/acme/demo/contents/.fettle.yml': {
         body: {
           type: 'file',
           encoding: 'base64',
@@ -149,7 +149,7 @@ describe('assessRepo', () => {
   it('names the repository when its configuration is invalid', async () => {
     const yaml = 'rules:\n  codeowners:\n    weight: heavy\n';
     const transport = scan({
-      'GET /repos/acme/demo/contents/.repohealth.yml': {
+      'GET /repos/acme/demo/contents/.fettle.yml': {
         body: {
           type: 'file',
           encoding: 'base64',

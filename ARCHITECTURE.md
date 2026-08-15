@@ -8,7 +8,7 @@ packages/
     src/
       index.ts          # public exports: assess(), types, defaultConfig
       types.ts          # HealthReport, RuleResult, Config — the public contract
-      config.ts         # load + merge: repo .repohealth.yml → defaults; validation
+      config.ts         # load + merge: repo .fettle.yml → defaults; validation
       github/
         client.ts       # Octokit factory (baseUrl resolution, auth, retries)
         queries.ts      # the one GraphQL query for PR flow data
@@ -66,7 +66,7 @@ user's config are a validation warning, not an error (forward compatibility).
 
 ```
 input repos[] ──► for each repo:
-  1. resolve config   (.repohealth.yml from target repo default branch, else defaults)
+  1. resolve config   (.fettle.yml from target repo default branch, else defaults)
   2. fetch context    (repo metadata + one GraphQL PR query)
   3. run rules        (parallel; each returns RuleResult)
   4. score            (SCORING.md math)
@@ -113,9 +113,9 @@ input repos[] ──► for each repo:
 ## Action design
 
 - Inputs: `repos` (newline/comma list, default: current repo), `token`
-  (default `${{ github.token }}`), `config-path` (default `.repohealth.yml`),
+  (default `${{ github.token }}`), `config-path` (default `.fettle.yml`),
   `fail-below` (optional grade floor, e.g. `C`), `report-url` (optional POST),
-  `output-dir` (default `repohealth-report/`).
+  `output-dir` (default `fettle-report/`).
 - Outputs: `grade`, `score`, `report-path`.
 - Writes: `report.json`, `badge/<repo>.json` (shields endpoint schema), markdown to
   `GITHUB_STEP_SUMMARY`.

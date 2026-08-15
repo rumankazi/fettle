@@ -10,6 +10,8 @@ import {
   assess,
   badgeFilename,
   buildBadgePayload,
+  CONFIG_FILENAME,
+  DEFAULT_OUTPUT_DIR,
   gradeFromScore,
   isFloorGrade,
   meetsGradeFloor,
@@ -19,10 +21,6 @@ import {
   type FloorGrade,
   type HealthReport,
 } from '@fettle/core';
-
-/** Defaults mirror `action.yml`, for the case where a runtime supplies no value. */
-const DEFAULT_CONFIG_PATH = '.repohealth.yml';
-const DEFAULT_OUTPUT_DIR = 'repohealth-report';
 
 /** How long to wait on the optional report POST before giving up on it. */
 const REPORT_POST_TIMEOUT_MS = 10_000;
@@ -93,7 +91,7 @@ export function readInputs(runtime: ActionRuntime): ActionInputs {
   return {
     repos,
     token: optional(runtime.getInput('token')),
-    configPath: optional(runtime.getInput('config-path')) ?? DEFAULT_CONFIG_PATH,
+    configPath: optional(runtime.getInput('config-path')) ?? CONFIG_FILENAME,
     failBelow: failBelowInput,
     reportUrl: optional(runtime.getInput('report-url')),
     outputDir: optional(runtime.getInput('output-dir')) ?? DEFAULT_OUTPUT_DIR,

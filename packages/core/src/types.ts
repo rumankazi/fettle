@@ -30,7 +30,7 @@ export interface RuleResult {
 
 /**
  * Settings are modelled in two shapes: `*Input` is what a user may write in
- * `.repohealth.yml` (every field optional), and `Resolved*` is what rules receive
+ * `.fettle.yml` (every field optional), and `Resolved*` is what rules receive
  * (every field present). Rules therefore never carry their own default fallbacks —
  * defaults live in exactly one place, `config.ts`.
  */

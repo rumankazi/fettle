@@ -1,9 +1,9 @@
 {
-  "name": ".repohealth.yml",
-  "path": ".repohealth.yml",
+  "name": ".fettle.yml",
+  "path": ".fettle.yml",
   "sha": "7777777777777777777777777777777777777777",
   "size": 64,
-  "url": "https://api.github.com/repos/acme/demo/contents/.repohealth.yml?ref=main",
+  "url": "https://api.github.com/repos/acme/demo/contents/.fettle.yml?ref=main",
   "type": "file",
   "encoding": "base64",
   "content": "cnVsZXM6CiAgY29kZW93bmVyczoKICAgIHdlaWdodDogNQo=\n"

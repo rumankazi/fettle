@@ -15,7 +15,7 @@ pass and `pnpm build && pnpm test && pnpm lint` is green.
 ## Phase 1 — Core: types, config, client
 
 - `types.ts` implementing the SCORING.md §6 schema; `config.ts` with defaults,
-  remote `.repohealth.yml` fetch, deep-merge, validation (warning vs hard-fail per
+  remote `.fettle.yml` fetch, deep-merge, validation (warning vs hard-fail per
   SCORING.md §5); `github/client.ts` with baseUrl resolution per ARCHITECTURE.md
   §GHES and retry/throttle plugins.
 - **Accept:** unit tests for config merge (empty file, partial override, unknown
@@ -43,7 +43,7 @@ pass and `pnpm build && pnpm test && pnpm lint` is green.
 
 ## Phase 4 — CLI
 
-- `repohealth --repos org/a,org/b --format json|markdown|badge [--api-url]
+- `fettle --repos org/a,org/b --format json|markdown|badge [--api-url]
 [--config <path>] [--fail-below <grade>]`; token from `GITHUB_TOKEN` env; exit 0
   normally, exit 1 when any repo grades below `--fail-below`; `--config` local file
   overrides remote fetch (useful for scanning many repos with one policy).
@@ -64,7 +64,7 @@ pass and `pnpm build && pnpm test && pnpm lint` is green.
 ## Phase 6 — Docs + release readiness
 
 - README: quick start (Action in <5 min), CLI usage, library example, full
-  `.repohealth.yml` reference, report schema reference, token permission matrix,
+  `.fettle.yml` reference, report schema reference, token permission matrix,
   "vs OSSF Scorecard" comparison table, badge setup (shields endpoint URL to the
   raw badge JSON committed/published by the user's workflow), GHES notes.
 - CONTRIBUTING.md: how to add a rule (interface, registry, fixtures, config

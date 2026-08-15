@@ -168,8 +168,8 @@ rules:
   });
 
   it('hard-fails on malformed YAML, naming the file', () => {
-    expect(() => parseConfig('rules: [unclosed', '.repohealth.yml')).toThrow(
-      /\.repohealth\.yml is not valid YAML/,
+    expect(() => parseConfig('rules: [unclosed', '.fettle.yml')).toThrow(
+      /\.fettle\.yml is not valid YAML/,
     );
   });
 });
