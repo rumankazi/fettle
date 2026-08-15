@@ -1,6 +1,6 @@
 {
   "name": "@fettle/core",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Maintenance-health grading engine: rules, scoring, and report assembly.",
   "license": "MIT",
   "homepage": "https://github.com/rumankazi/fettle#readme",
