@@ -228,3 +228,54 @@ they still agree.
 **The badge label stays "repo health".** It names the metric, the way shields
 badges elsewhere read "coverage" or "build", rather than the product. It is one
 constant (`BADGE_LABEL`) if that judgement is ever reversed.
+
+## D20 — Evidence is escaped before it reaches markdown
+
+`renderMarkdown` flattens newlines and escapes pipes in every evidence string,
+in the table and in the "checks we could not run" list alike.
+
+**Why:** evidence embeds data from the repository being scanned — ruleset names,
+file paths — and that is not always a repository the reader controls. A newline
+would end a table row and a `##` at the start of the next line would become a
+heading, letting a scanned repository restructure a report about itself. The text
+survives intact; it just cannot start a line.
+
+## D21 — PR-gating security checks are the precise ones; the noisy one is scheduled
+
+`dependency-review` runs on pull requests and blocks them. `pnpm audit` runs weekly
+and on demand, not on pull requests.
+
+**Why:** the two answer different questions. Dependency review asks "does _this
+change_ add something vulnerable", which is the author's problem and worth blocking
+on. `pnpm audit` asks "is anything in the tree vulnerable today", which usually has
+nothing to do with the change under review — an advisory published this morning
+would block unrelated work, and a check that blocks unrelated work is a check people
+learn to route around. Weekly runs keep it visible without making it someone else's
+problem at the wrong moment.
+
+Accepted advisories are listed in `pnpm.auditConfig.ignoreGhsas` and justified
+individually in [SECURITY.md](SECURITY.md#accepted-advisories), including the one
+genuinely unresolved item: `@actions/core` ships roughly three quarters of the Action
+bundle, `undici` included, for six functions we could write ourselves.
+
+## D22 — Third-party actions are pinned to a commit SHA; first-party ones are not
+
+`pnpm/action-setup` is pinned to a SHA with the version in a trailing comment.
+`actions/*` and `github/codeql-action/*` are referenced by major tag.
+
+**Why:** a mutable tag on a third-party action is a supply-chain hole — whoever
+controls the repository can move it. Pinning first-party GitHub actions the same way
+buys much less, since compromising them means compromising the runner anyway, and it
+costs a great deal of churn. Dependabot's `github-actions` ecosystem updates both, so
+the SHA does not rot.
+
+## D23 — The repository passes its own checks
+
+The repository has `.github/CODEOWNERS`, `.github/dependabot.yml`, and a workflow
+that grades it with its own Action.
+
+**Why:** three of the five rules check for exactly these files. Shipping a tool that
+grades repositories on hygiene its own repository lacks is not a good look, and the
+self-scan in CI is also the only test that exercises the real GitHub API, the
+committed bundle and the runner protocol together — everything else mocks the
+transport.

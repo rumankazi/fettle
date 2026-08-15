@@ -202,4 +202,36 @@ describe('renderMarkdown', () => {
 
     expect(escaped).toContain('a \\| b');
   });
+
+  it('flattens newlines, so repository data cannot break out of a table row', () => {
+    // Evidence embeds data from the scanned repository — a ruleset named across
+    // two lines must not be able to restructure the report.
+    const injected = renderMarkdown(
+      buildHealthReport(
+        [
+          {
+            repo: 'acme/demo',
+            defaultBranch: 'main',
+            rules: [
+              {
+                id: 'branch_protection',
+                status: 'na',
+                score: null,
+                weight: 3,
+                evidence: 'ruleset\n\n## Injected heading\n| a | b |',
+              },
+            ],
+          },
+        ],
+        GENERATED_AT,
+      ),
+    );
+
+    // The text survives; what it must not do is start a line, because that is
+    // what would turn it into a heading or a new table row.
+    const lines = injected.split('\n');
+    expect(lines.some((line) => line.startsWith('## Injected'))).toBe(false);
+    expect(lines.filter((line) => line.startsWith('|'))).toHaveLength(3); // header, divider, one rule
+    expect(injected).toContain('ruleset ## Injected heading \\| a \\| b \\|');
+  });
 });

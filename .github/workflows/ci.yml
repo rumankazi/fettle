@@ -5,18 +5,27 @@ on:
     branches: ['**']
   pull_request:
 
-permissions:
-  contents: read
+# Least privilege by default; jobs opt in to what they need.
+permissions: {}
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   verify:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
     steps:
       - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
         with:
-          version: 9.15.4
+          persist-credentials: false
+
+      # Third-party actions are pinned to a commit SHA; Dependabot moves them.
+      # actions/* are first-party and tracked by major tag.
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
 
       - uses: actions/setup-node@v4
         with:
@@ -63,3 +72,58 @@ jobs:
               echo "::error::The Action bundle did not load. Check packages/action/build.mjs."
               exit 1 ;;
           esac
+
+  # An end-to-end run against a real repository — ours. Unit tests all mock the
+  # transport, so this is the only check that exercises the actual GitHub API, the
+  # committed bundle and the runner protocol together.
+  self-scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+      - name: Scan this repository with this build
+        id: health
+        uses: ./packages/action
+        # No fail-below: a health grade must never gate a code change. The point is
+        # that the Action ran and produced a report.
+
+      - name: Check the run produced what it promises
+        env:
+          REPORT: ${{ steps.health.outputs.report-path }}
+          GRADE: ${{ steps.health.outputs.grade }}
+        run: |
+          test -f "$REPORT" || { echo "::error::no report at $REPORT"; exit 1; }
+          test -n "$GRADE"  || { echo "::error::no grade output"; exit 1; }
+          node -e '
+            const report = require("node:fs").readFileSync(process.env.REPORT, "utf8");
+            const parsed = JSON.parse(report);
+            if (parsed.schemaVersion !== 1) throw new Error("unexpected schemaVersion");
+            if (parsed.repos.length !== 1) throw new Error("expected one repository");
+            const rules = parsed.repos[0].rules;
+            if (rules.length !== 5) throw new Error("expected five rules, got " + rules.length);
+            for (const rule of rules) {
+              if (!rule.evidence) throw new Error("rule " + rule.id + " has no evidence");
+            }
+            console.log("report ok:", parsed.repos[0].grade, parsed.repos[0].score);
+          '
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: self-scan-report
+          path: ${{ steps.health.outputs.report-path }}
+          if-no-files-found: error

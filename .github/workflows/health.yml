@@ -1,0 +1,53 @@
+name: Repository health
+
+# Dogfooding: the scheduled scan of our own repository, published as a badge.
+# CI already runs the Action on every push as an integration test; this one is about
+# the grade rather than about whether the code works.
+
+on:
+  schedule:
+    - cron: '0 9 * * 1' # Mondays at 09:00 UTC
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+      - name: Grade this repository
+        id: health
+        uses: ./packages/action
+        with:
+          # `branch_protection` needs administration:read, which the default token
+          # does not have, so it reports `na` and the summary says so. Set a PAT in
+          # the FETTLE_TOKEN secret to unlock it.
+          token: ${{ secrets.FETTLE_TOKEN || github.token }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: health-report
+          path: fettle-report/
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Summarise
+        run: |
+          echo "Graded ${{ steps.health.outputs.grade }} (${{ steps.health.outputs.score }})"

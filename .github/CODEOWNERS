@@ -1,0 +1,15 @@
+# Review routing. Fettle grades repositories on having one of these, so it would be
+# poor form not to.
+#
+# Replace @rumankazi with your team handle when this moves to an org.
+
+*                       @rumankazi
+
+# The scoring math and the report schema are public contracts. Changes here need a
+# deliberate look, not a rubber stamp.
+/SCORING.md             @rumankazi
+/packages/core/src/scoring.ts   @rumankazi
+/packages/core/src/types.ts     @rumankazi
+
+# Executable code shipped to consumers.
+/packages/action/dist/  @rumankazi

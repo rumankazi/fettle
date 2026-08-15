@@ -1,0 +1,85 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions: {}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write # move the floating major tag, create the release
+      id-token: write # npm provenance
+
+    # Lifted to the job so the publish step can test for it: the `secrets` context
+    # is not available in a step-level `if`.
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - run: pnpm install --frozen-lockfile
+
+      # Everything CI checks, again. A tag is the last chance to catch a bad build,
+      # and unlike a pull request it cannot be amended after the fact.
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+
+      - name: Verify the committed Action bundle matches source
+        run: |
+          if ! git diff --exit-code -- packages/action/dist; then
+            echo "::error::packages/action/dist is out of date at the tag. Do not release this."
+            exit 1
+          fi
+
+      - name: Verify the tag matches the package version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          version=$(node -p "require('./packages/core/package.json').version")
+          if [ "$tag" != "$version" ]; then
+            echo "::error::tag v$tag does not match package version $version."
+            exit 1
+          fi
+
+      - name: Publish to npm
+        # Skipped until the @fettle scope has a token, so tagging still produces a
+        # verified build and a release even before publishing is set up.
+        if: env.NPM_TOKEN != ''
+        env:
+          NODE_AUTH_TOKEN: ${{ env.NPM_TOKEN }}
+        run: |
+          pnpm --filter @fettle/core publish --access public --provenance --no-git-checks
+          pnpm --filter @fettle/cli publish --access public --provenance --no-git-checks
+
+      # Action consumers pin `@v1` and expect it to follow the latest v1.x. Nothing
+      # moves it but this.
+      - name: Move the floating major tag
+        run: |
+          major="$(echo "${GITHUB_REF_NAME}" | cut -d. -f1)"
+          git tag -f "$major" "${GITHUB_REF_NAME}"
+          git push --force origin "refs/tags/$major"
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes \
+            --verify-tag

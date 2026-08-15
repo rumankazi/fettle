@@ -1,0 +1,36 @@
+version: 2
+
+updates:
+  # Our own dependencies. Grouped so a routine week is one pull request rather than
+  # a dozen, which is the difference between updates that get reviewed and updates
+  # that get rubber-stamped.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      octokit:
+        patterns: ['@octokit/*']
+      dev-tooling:
+        patterns:
+          - '@typescript-eslint/*'
+          - '@eslint/*'
+          - eslint*
+          - prettier
+          - typescript
+          - vitest
+          - esbuild
+          - '@types/*'
+
+  # Actions used by our own workflows. Third-party actions are pinned to a commit
+  # SHA, so this is the only thing that moves them.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions:
+        patterns: ['*']

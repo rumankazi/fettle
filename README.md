@@ -21,6 +21,25 @@ Scoring is a weighted average, and a check we could not run scores nothing at al
 it leaves both sides of the average, so a narrow token never costs you points. The
 full math is in [SCORING.md](SCORING.md), which is normative.
 
+## Fettle vs OSSF Scorecard
+
+They answer different questions, and using both is reasonable.
+
+|                        | Fettle                                         | [OSSF Scorecard](https://github.com/ossf/scorecard) |
+| ---------------------- | ---------------------------------------------- | --------------------------------------------------- |
+| Question               | Is this repository being looked after?         | Is this project's supply chain trustworthy?         |
+| Checks                 | 5, maintenance-focused                         | ~19, security-focused                               |
+| Aimed at               | internal repositories you own                  | open-source dependencies you consume                |
+| Configuration          | weights and thresholds per repository          | fixed checks                                        |
+| Output                 | letter grade, weighted, with evidence per rule | 0–10 per check                                      |
+| Unrunnable checks      | dropped from the score entirely                | generally scored as a failure                       |
+| Runs on                | github.com and GitHub Enterprise Server        | github.com (GitLab partially)                       |
+| Noise on private repos | low — the rules were picked for it             | high — many checks assume a public project          |
+
+If you want to know whether a dependency is safe to adopt, use Scorecard. If you
+want to know which of your forty internal repositories nobody has touched in a year,
+that is this.
+
 ## Quick start: the Action
 
 ```yaml
@@ -258,5 +277,18 @@ pnpm cli -- --help
 | 5     | GitHub Action (`action.yml`, summary, outputs)    | done        |
 | 6     | CONTRIBUTING, "vs Scorecard" comparison, release  | not started |
 
-Design deviations and resolved ambiguities are recorded in
-[DECISIONS.md](DECISIONS.md).
+## Contributing
+
+Start with [CONTRIBUTING.md](CONTRIBUTING.md) — it covers setup, the invariants that
+shape review, and a walkthrough for adding a rule. Whether a rule _belongs_ is a
+product question, so please open an issue before building one.
+
+- [DECISIONS.md](DECISIONS.md) — deviations from the specs, and why
+- [ARCHITECTURE.md](ARCHITECTURE.md) — layout, data flow, API strategy, GHES
+- [SCORING.md](SCORING.md) — the normative scoring math and report schema
+- [SECURITY.md](SECURITY.md) — reporting a vulnerability, and what is in scope
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+
+## License
+
+[MIT](LICENSE).

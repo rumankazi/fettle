@@ -3,6 +3,24 @@
   "version": "0.1.0",
   "description": "Maintenance-health grading engine: rules, scoring, and report assembly.",
   "license": "MIT",
+  "homepage": "https://github.com/rumankazi/fettle#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rumankazi/fettle.git",
+    "directory": "packages/core"
+  },
+  "bugs": {
+    "url": "https://github.com/rumankazi/fettle/issues"
+  },
+  "keywords": [
+    "github",
+    "repository",
+    "maintenance",
+    "health",
+    "metrics",
+    "scorecard",
+    "ghes"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

@@ -21536,8 +21536,8 @@ function buildBadgePayload(repo) {
 function badgeFilename(repo) {
   return `${repo.replace(/[^A-Za-z0-9._-]+/g, "__")}.json`;
 }
-function escapeTableCell(value) {
-  return value.replace(/\|/g, "\\|");
+function escapeMarkdown(value) {
+  return value.replace(/\s*[\r\n]+\s*/g, " ").replace(/\|/g, "\\|");
 }
 function renderRepoSection(repo) {
   const lines = [
@@ -21548,7 +21548,7 @@ function renderRepoSection(repo) {
     "| Rule | Status | Score | Weight | Evidence |",
     "| --- | --- | ---: | ---: | --- |",
     ...repo.rules.map(
-      (rule) => `| \`${rule.id}\` | ${rule.status} | ${rule.score ?? "\u2014"} | ${rule.weight} | ${escapeTableCell(rule.evidence)} |`
+      (rule) => `| \`${rule.id}\` | ${rule.status} | ${rule.score ?? "\u2014"} | ${rule.weight} | ${escapeMarkdown(rule.evidence)} |`
     )
   ];
   const blocked = repo.rules.filter((rule) => rule.status === "na").sort((a, b) => b.weight - a.weight);
@@ -21557,7 +21557,9 @@ function renderRepoSection(repo) {
       "",
       "### Checks we could not run",
       "",
-      ...blocked.map((rule) => `- \`${rule.id}\` (weight ${rule.weight}) \u2014 ${rule.evidence}`)
+      ...blocked.map(
+        (rule) => `- \`${rule.id}\` (weight ${rule.weight}) \u2014 ${escapeMarkdown(rule.evidence)}`
+      )
     );
   }
   return lines.join("\n");

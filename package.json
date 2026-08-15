@@ -1,6 +1,7 @@
 {
   "name": "fettle-monorepo",
   "private": true,
+  "type": "module",
   "version": "0.1.0",
   "packageManager": "pnpm@9.15.4",
   "engines": {
@@ -24,6 +25,16 @@
     "eslint-config-prettier": "^9.0.0",
     "prettier": "^3.3.0",
     "typescript": "^5.7.0",
-    "vitest": "^2.1.8"
+    "vite": "^8.2.1",
+    "vitest": "^4.1.10"
+  },
+  "pnpm": {
+    "auditConfig": {
+      "ignoreGhsas": [
+        "GHSA-vrm6-8vpv-qv8q",
+        "GHSA-v9p9-hfj2-hcw8",
+        "GHSA-vxpw-j846-p89q"
+      ]
+    }
   }
 }

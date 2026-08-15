@@ -84,8 +84,16 @@ export function badgeFilename(repo: string): string {
   return `${repo.replace(/[^A-Za-z0-9._-]+/g, '__')}.json`;
 }
 
-function escapeTableCell(value: string): string {
-  return value.replace(/\|/g, '\\|');
+/**
+ * Makes evidence safe to drop into markdown.
+ *
+ * Evidence embeds data from the repository being scanned — ruleset names, file
+ * paths — which is not necessarily a repository the reader controls. A pipe would
+ * break out of a table cell and a newline would break out of the row, so neither
+ * survives. The text stays readable; it just cannot restructure the document.
+ */
+function escapeMarkdown(value: string): string {
+  return value.replace(/\s*[\r\n]+\s*/g, ' ').replace(/\|/g, '\\|');
 }
 
 function renderRepoSection(repo: RepoReport): string {
@@ -100,7 +108,7 @@ function renderRepoSection(repo: RepoReport): string {
     ...repo.rules.map(
       (rule) =>
         `| \`${rule.id}\` | ${rule.status} | ${rule.score ?? '—'} | ${rule.weight} | ` +
-        `${escapeTableCell(rule.evidence)} |`,
+        `${escapeMarkdown(rule.evidence)} |`,
     ),
   ];
 
@@ -115,7 +123,9 @@ function renderRepoSection(repo: RepoReport): string {
       '',
       '### Checks we could not run',
       '',
-      ...blocked.map((rule) => `- \`${rule.id}\` (weight ${rule.weight}) — ${rule.evidence}`),
+      ...blocked.map(
+        (rule) => `- \`${rule.id}\` (weight ${rule.weight}) — ${escapeMarkdown(rule.evidence)}`,
+      ),
     );
   }
 

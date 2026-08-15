@@ -3,6 +3,15 @@
   "version": "0.1.0",
   "description": "GitHub Action wrapper around the maintenance-health grading engine.",
   "license": "MIT",
+  "homepage": "https://github.com/rumankazi/fettle#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rumankazi/fettle.git",
+    "directory": "packages/action"
+  },
+  "bugs": {
+    "url": "https://github.com/rumankazi/fettle/issues"
+  },
   "private": true,
   "type": "module",
   "engines": {

@@ -3,6 +3,23 @@
   "version": "0.1.0",
   "description": "Command-line interface for grading repository maintenance health.",
   "license": "MIT",
+  "homepage": "https://github.com/rumankazi/fettle#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rumankazi/fettle.git",
+    "directory": "packages/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/rumankazi/fettle/issues"
+  },
+  "keywords": [
+    "github",
+    "repository",
+    "maintenance",
+    "health",
+    "cli",
+    "ghes"
+  ],
   "type": "module",
   "bin": {
     "fettle": "./dist/index.js"
