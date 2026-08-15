@@ -7,6 +7,11 @@ name: Release pull request
 # CI skips its bundle-freshness check on these branches for the same reason. This
 # job replaces it, and runs the full check suite *after* the rebuild so what gets
 # verified is exactly what gets merged.
+#
+# The push uses the App token, not GITHUB_TOKEN. A commit pushed as
+# github-actions[bot] lands the resulting workflow runs in "awaiting approval",
+# so every release pull request had to be approved by hand before its checks
+# would run. Pushing as the App avoids that.
 
 on:
   pull_request:
@@ -27,9 +32,19 @@ jobs:
       contents: write # push the rebuilt bundle back to the release pull request
 
     steps:
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        if: vars.FETTLE_APP_CLIENT_ID != ''
+        with:
+          client-id: ${{ vars.FETTLE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.FETTLE_APP_PRIVATE_KEY }}
+          permission-contents: write
+
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.head_ref }}
+          # Becomes the credential `git push` uses below.
+          token: ${{ steps.app-token.outputs.token || github.token }}
 
       - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
 
@@ -42,20 +57,24 @@ jobs:
       - run: pnpm build
 
       - name: Commit the rebuilt bundle
+        env:
+          # Attribute the commit to the App too, so the history matches the push.
+          COMMITTER: ${{ vars.FETTLE_APP_CLIENT_ID != '' && 'rk-release-bot[bot]' || 'github-actions[bot]' }}
         run: |
           if git diff --quiet -- packages/action/dist; then
             echo "Bundle already current; nothing to commit."
             exit 0
           fi
-          git config user.name 'github-actions[bot]'
-          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git config user.name "$COMMITTER"
+          git config user.email "$COMMITTER@users.noreply.github.com"
           git add packages/action/dist
           git commit -m 'chore: rebuild the Action bundle for the release'
           git push origin HEAD:"${GITHUB_HEAD_REF}"
 
-      # Run after the rebuild, so this verifies the tree that will actually merge.
-      # A push made with GITHUB_TOKEN does not start another workflow run, which is
-      # exactly why these checks live here rather than being left to CI.
+      # Run after the rebuild, so this verifies the tree that will actually merge
+      # rather than the tree release-please wrote. Pushing as the App does start a
+      # fresh round of CI on the updated branch, which is the belt to this braces;
+      # that round finds no diff to commit, so nothing loops.
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test

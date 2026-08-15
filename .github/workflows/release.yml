@@ -196,4 +196,3 @@ jobs:
           echo "::warning::Neither NPM_TRUSTED_PUBLISHING nor NPM_TOKEN is set, so"
           echo "nothing was published to npm. The tag, the GitHub release and the"
           echo "floating major tag are all in place. See CONTRIBUTING.md#tokens."
-
