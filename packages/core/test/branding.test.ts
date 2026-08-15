@@ -19,6 +19,17 @@ describe('version consistency', () => {
     expect(packageJson(name).version).toBe(TOOL_VERSION);
   });
 
+  it('gives every published package a resolvable entry point', () => {
+    // A package with only `bin` has no entry point at all: importing it fails and
+    // tooling that inspects packages — bundlephobia among them — cannot read it.
+    for (const name of ['core', 'cli']) {
+      const pkg = packageJson(name) as unknown as Record<string, unknown>;
+      expect(pkg.main, `${name} main`).toBeTruthy();
+      expect(pkg.types, `${name} types`).toBeTruthy();
+      expect(pkg.exports, `${name} exports`).toBeTruthy();
+    }
+  });
+
   it('names the packages after the tool, so a rename stays mechanical', () => {
     for (const name of ['core', 'cli', 'action']) {
       expect(packageJson(name).name).toBe(`@${TOOL_NAME}/${name}`);
