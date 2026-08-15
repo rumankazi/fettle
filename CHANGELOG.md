@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.0](https://github.com/rumankazi/fettle/compare/v0.1.4...v0.2.0) (2026-08-15)
+
+
+### Features
+
+* **ci:** publish this repository's own health badge ([22211fc](https://github.com/rumankazi/fettle/commit/22211fc4c4a4ea9ffad0735836886926ee6e2bd1))
+
+
+### Bug fixes
+
+* **ci:** let the health scan run without an App token ([13a7f79](https://github.com/rumankazi/fettle/commit/13a7f792ee00ad88868cc300dab900155bc9963b))
+
 ## [0.1.4](https://github.com/rumankazi/fettle/compare/v0.1.3...v0.1.4) (2026-08-15)
 
 
