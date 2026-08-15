@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.0.0](https://github.com/rumankazi/fettle/compare/v0.2.0...v1.0.0) (2026-08-15)
+
+
+### ⚠ BREAKING CHANGES
+
+* **action:** none for consumers of the Action or the packages; the runtime swap is internal. Marked as a feature because the shipped artefact changes substantially.
+
+### Features
+
+* **action:** implement the runner protocol instead of @actions/core ([9fa0929](https://github.com/rumankazi/fettle/commit/9fa0929904ad5171656cd27d8d5a2ac370062933))
+* **core:** render a self-contained SVG badge ([c49a2b2](https://github.com/rumankazi/fettle/commit/c49a2b26627e54b961d95eeae2dbe6b9a0230a8e))
+
+
+### Documentation
+
+* correct the badge instructions and use our own SVG ([c9ee463](https://github.com/rumankazi/fettle/commit/c9ee463a94071b2d42b400d18de265a18b3502bf))
+
 ## [0.2.0](https://github.com/rumankazi/fettle/compare/v0.1.4...v0.2.0) (2026-08-15)
 
 
