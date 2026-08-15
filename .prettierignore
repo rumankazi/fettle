@@ -2,3 +2,7 @@
 # formatting, not Prettier.
 dist
 pnpm-lock.yaml
+
+# release-please rewrites this on every release and owns its layout. Formatting it
+# ourselves would just lose the argument again next time.
+CHANGELOG.md
