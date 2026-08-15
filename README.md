@@ -5,6 +5,8 @@
 [![npm](https://img.shields.io/npm/v/%40fettle%2Fcli?logo=npm)](https://www.npmjs.com/package/@fettle/cli)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![marketplace](https://img.shields.io/badge/marketplace-fettle-2ea44f?logo=github)](https://github.com/marketplace/actions/fettle-repository-health-grade)
+[![socket: core](https://badge.socket.dev/npm/package/@fettle/core)](https://socket.dev/npm/package/@fettle/core)
+[![socket: cli](https://badge.socket.dev/npm/package/@fettle/cli)](https://socket.dev/npm/package/@fettle/cli)
 
 Grade the maintenance health of your GitHub repositories — five explainable rules,
 weighted scoring, a letter grade, and evidence for every result.
@@ -289,10 +291,13 @@ A scan costs about eight requests per repository: one for metadata, up to three 
 walk the file tree, one or two for branch protection, one for `.fettle.yml`, and
 one GraphQL query for pull requests.
 
-Two caps are worth knowing about. Pull request pagination stops after 500 open PRs
-and reports the counts as a lower bound, saying so in the evidence. And Octokit's
-throttling plugin paces GraphQL at one request per second, so a fleet scan settles at
-roughly one repository per second however many run concurrently.
+One cap is worth knowing about: pull request pagination stops after 500 open PRs and
+reports the counts as a lower bound, saying so in the evidence.
+
+Rate limits are reported rather than slept through. A rate-limited response ends that
+check as `na` carrying the reset time, rather than pausing the scan until the limit
+clears — a scan that finishes with a gap and an explanation is more use than one that
+hangs. Transport failures and server errors are retried with a quadratic backoff.
 
 ## GitHub Enterprise Server
 

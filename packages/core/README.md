@@ -1,5 +1,8 @@
 # @fettle/core
 
+[![npm](https://img.shields.io/npm/v/%40fettle%2Fcore?logo=npm)](https://www.npmjs.com/package/@fettle/core)
+[![socket](https://badge.socket.dev/npm/package/@fettle/core)](https://socket.dev/npm/package/@fettle/core)
+
 The maintenance-health grading engine behind [Fettle](https://github.com/rumankazi/fettle):
 rules, scoring, the GitHub fetch layer, and report assembly.
 

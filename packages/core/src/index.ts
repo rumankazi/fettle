@@ -32,7 +32,6 @@ export {
   createGitHubClient,
   GITHUB_COM_API_URL,
   resolveApiBaseUrl,
-  shouldRetryRateLimit,
   type GitHubClient,
   type GitHubClientOptions,
 } from './github/client.js';

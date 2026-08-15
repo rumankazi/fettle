@@ -113,7 +113,7 @@ jobs:
 
       - name: Check declared runtime dependencies against the allowlist
         run: |
-          allowed='@fettle/core @octokit/core @octokit/plugin-retry @octokit/plugin-throttling js-yaml'
+          allowed='@fettle/core @octokit/core js-yaml'
           status=0
           for manifest in packages/*/package.json; do
             deps=$(node -e "

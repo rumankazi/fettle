@@ -90,9 +90,6 @@ export function createTransport(handlers: Handlers, options: { token?: string } 
     // Retries would turn one stubbed 500 into several; each test asserts on a
     // single exchange.
     request: { fetch: fetchStub, retries: 0 },
-    // The throttling plugin paces GraphQL at one request per second through a
-    // process-wide limiter, which would serialise the whole suite.
-    throttle: { enabled: false },
   });
 
   return {
