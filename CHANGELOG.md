@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.0.0](https://github.com/rumankazi/fettle/compare/v2.0.2...v3.0.0) (2026-08-15)
+
+
+### ⚠ BREAKING CHANGES
+
+* **core:** remove both Octokit plugins, leaving two runtime dependencies ([#21](https://github.com/rumankazi/fettle/issues/21))
+
+### Features
+
+* **core:** remove both Octokit plugins, leaving two runtime dependencies ([#21](https://github.com/rumankazi/fettle/issues/21)) ([ba52532](https://github.com/rumankazi/fettle/commit/ba52532b65858b6808bfd5a9d5bda6b66d18390f))
+
 ## [2.0.2](https://github.com/rumankazi/fettle/compare/v2.0.1...v2.0.2) (2026-08-15)
 
 
