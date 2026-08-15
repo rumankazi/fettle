@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.1](https://github.com/rumankazi/fettle/compare/v2.0.0...v2.0.1) (2026-08-15)
+
+
+### Documentation
+
+* README told people to use a reference that does not resolve ([#18](https://github.com/rumankazi/fettle/issues/18)) ([c1136b3](https://github.com/rumankazi/fettle/commit/c1136b3a389095c3456ca4621c089469c5eb71f6))
+
 ## [2.0.0](https://github.com/rumankazi/fettle/compare/v1.0.1...v2.0.0) (2026-08-15)
 
 
