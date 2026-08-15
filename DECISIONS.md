@@ -484,3 +484,27 @@ did once the wait cap was hit. Transport failures and 5xx are retried, three tim
 backing off 1s, 4s, 8s.
 
 The Action bundle went from 236 kB to 176 kB.
+
+## D33 — Node 20 stays the floor, and CI tests both ends of the range
+
+`engines` remains `>=20` and the Action's `runs.using` remains `node20`. CI's
+`verify` job runs on Node 20 and 24.
+
+**Why not raise it,** given Node 20 reached end of life on 30 April 2026: the Action
+does not ship a Node runtime. The runner supplies it, so an unpatched Node 20 is
+GitHub's problem to fix in the runner image, not something we hand to a user. What we
+would be buying by moving to `node24` is nothing, and what we would be risking is
+GitHub Enterprise Server — GHES bundles its own runner versions and lags github.com,
+and `SPEC.md` commits to supporting it. GitHub's own documentation lists `node20` and
+`node24` side by side with no deprecation notice.
+
+The same reasoning holds `engines` at `>=20`: raising it while `runs.using` is
+`node20` would claim not to support the runtime we actually execute on.
+
+**What was wrong and is now fixed:** CI tested only Node 20 while the release job
+publishes from Node 24 and contributors run whatever they have. Testing one version
+and shipping across a range is how a version-specific break reaches a user. The
+matrix covers the floor and the current active LTS.
+
+**Revisit when** GHES ships a runner that supports `node24` in a release we are happy
+to make the minimum. That is a single-line change to `action.yml`, plus the matrix.
