@@ -1,0 +1,14 @@
+{
+  "name": "@fettle/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "fettle": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@fettle/core": "workspace:*"
+  }
+}
