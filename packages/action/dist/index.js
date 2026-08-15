@@ -1578,13 +1578,14 @@ var openPrCountRule = {
     if (!probe.available) {
       return notApplicable("open_pr_count", settings, probe);
     }
-    const openPrs = probe.value.filter((pr) => !pr.isDraft);
+    const { items, truncated } = probe.value;
+    const openPrs = items.filter((pr) => !pr.isDraft);
     return threshold(
       "open_pr_count",
       settings,
       openPrs.length,
-      (score) => `${openPrs.length} open non-draft pull request(s); ${settings.good_at} or fewer scores 100, ${settings.bad_at} or more scores 0 (scored ${score}).`,
-      { draftsExcluded: probe.value.length - openPrs.length }
+      (score) => `${truncated ? "At least " : ""}${openPrs.length} open non-draft pull request(s)${truncated ? " (the scan stopped paging before the end)" : ""}; ${settings.good_at} or fewer scores 100, ${settings.bad_at} or more scores 0 (scored ${score}).`,
+      { draftsExcluded: items.length - openPrs.length, truncated }
     );
   }
 };
@@ -1608,13 +1609,14 @@ var stalePrsRule = {
     if (!probe.available) {
       return notApplicable("stale_prs", settings, probe);
     }
-    const stale = probe.value.filter((pr) => isStale(pr, ctx.now, settings));
+    const { items, truncated } = probe.value;
+    const stale = items.filter((pr) => isStale(pr, ctx.now, settings));
     return threshold(
       "stale_prs",
       settings,
       stale.length,
-      (score) => `${stale.length} pull request(s) open more than ${settings.open_days} day(s) with no commit in the last ${settings.inactive_days} day(s); ${settings.good_at} or fewer scores 100, ${settings.bad_at} or more scores 0 (scored ${score}).`,
-      { stalePrNumbers: stale.map((pr) => pr.number) }
+      (score) => `${truncated ? "At least " : ""}${stale.length} pull request(s) open more than ${settings.open_days} day(s) with no commit in the last ${settings.inactive_days} day(s)${truncated ? " (the scan stopped paging before the end)" : ""}; ${settings.good_at} or fewer scores 100, ${settings.bad_at} or more scores 0 (scored ${score}).`,
+      { stalePrNumbers: stale.map((pr) => pr.number), truncated }
     );
   }
 };

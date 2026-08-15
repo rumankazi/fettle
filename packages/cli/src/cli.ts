@@ -5,25 +5,30 @@
  * a function: nothing here reads `process` directly or calls `process.exit`.
  */
 
+import { readFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
 import {
+  assess,
   badgeFilename,
   buildBadgePayload,
-  buildHealthReport,
   CONFIG_FILENAME,
   meetsGradeFloor,
+  parseConfig,
   renderMarkdown,
   TOOL_NAME,
   TOOL_VERSION,
+  type AssessOptions,
   type BadgePayload,
+  type ConfigInput,
   type Grade,
   type HealthReport,
-  type RepoAssessment,
 } from '@fettle/core';
 
 export const EXIT_OK = 0;
 export const EXIT_BELOW_FLOOR = 1;
 export const EXIT_USAGE = 2;
+/** A repository or its configuration could not be read; nothing was graded. */
+export const EXIT_SCAN_FAILED = 3;
 
 const FORMATS = ['json', 'markdown', 'badge'] as const;
 export type Format = (typeof FORMATS)[number];
@@ -37,7 +42,8 @@ export interface CliOptions {
   format: Format;
   failBelow?: FloorGrade;
   apiUrl?: string;
-  configPath: string;
+  /** A local config file; absent means each repository supplies its own. */
+  configPath?: string;
   help: boolean;
   version: boolean;
 }
@@ -74,7 +80,8 @@ Authentication:
 Exit codes:
   ${EXIT_OK}  success
   ${EXIT_BELOW_FLOOR}  a repository graded below --fail-below
-  ${EXIT_USAGE}  invalid usage`;
+  ${EXIT_USAGE}  invalid usage
+  ${EXIT_SCAN_FAILED}  a repository or its configuration could not be read`;
 
 function splitRepoList(value: string): string[] {
   return value
@@ -152,7 +159,7 @@ export function parseCliOptions(
         ? undefined
         : oneOf(values['fail-below'], FLOOR_GRADES, 'fail-below'),
     apiUrl: values['api-url'] ?? env.GITHUB_API_URL,
-    configPath: values.config ?? CONFIG_FILENAME,
+    configPath: values.config,
     help,
     version,
   };
@@ -181,27 +188,44 @@ function belowFloor(report: HealthReport, floor: FloorGrade): Grade[] {
 }
 
 /**
- * Gathers the rule results for one repository.
+ * Performs the scan.
  *
- * Injected so the command can be tested without a network, and so Phase 2 can drop
- * the real GitHub-backed implementation in without touching this file.
+ * Injected so the command can be tested without a network. The real
+ * implementation is core's `assess`, which owns request pacing and concurrency —
+ * the CLI's job is arguments, configuration, rendering and exit codes.
  */
-export type Assessor = (repo: string, options: CliOptions) => Promise<RepoAssessment>;
-
-const notImplemented: Assessor = async (repo) => {
-  throw new Error(
-    `cannot assess ${repo}: the GitHub fetch layer is not implemented yet (Phase 2). ` +
-      `The scoring engine is usable today via the @fettle/core library.`,
-  );
-};
+export type Scanner = (repos: readonly string[], options: AssessOptions) => Promise<HealthReport>;
 
 export interface RunOptions {
   argv: readonly string[];
   env?: Readonly<Record<string, string | undefined>>;
   stdout: (chunk: string) => void;
   stderr: (chunk: string) => void;
-  assess?: Assessor;
+  scan?: Scanner;
   now?: Date;
+}
+
+function describe(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * Loads the `--config` file, if one was given.
+ *
+ * A local file replaces each repository's own `.repohealth.yml`, which is how one
+ * policy gets applied across a fleet.
+ */
+async function readLocalConfig(
+  path: string | undefined,
+  warn: (text: string) => void,
+): Promise<ConfigInput | undefined> {
+  if (path === undefined) return undefined;
+
+  const contents = await readFile(path, 'utf8');
+  const { config, warnings } = parseConfig(contents, path);
+  for (const warning of warnings) warn(`${path}: ${warning}`);
+
+  return config;
 }
 
 /** Runs the command and returns its exit code. Never throws for expected failures. */
@@ -227,17 +251,38 @@ export async function run(options: RunOptions): Promise<number> {
     return EXIT_OK;
   }
 
-  const assess = options.assess ?? notImplemented;
+  const env = options.env ?? {};
+  const warn = (text: string) => stderr(`${TOOL_NAME}: ${text}\n`);
 
-  let assessments;
+  let config: ConfigInput | undefined;
   try {
-    assessments = await Promise.all(cli.repos.map((repo) => assess(repo, cli)));
+    config = await readLocalConfig(cli.configPath, warn);
   } catch (error) {
-    stderr(`${TOOL_NAME}: ${error instanceof Error ? error.message : String(error)}\n`);
+    warn(describe(error));
     return EXIT_USAGE;
   }
 
-  const report = buildHealthReport(assessments, options.now);
+  if (env.GITHUB_TOKEN === undefined) {
+    warn(
+      'no $GITHUB_TOKEN set; scanning anonymously. Private repositories will look missing and ' +
+        'the rate limit is low.',
+    );
+  }
+
+  let report: HealthReport;
+  try {
+    report = await (options.scan ?? assess)(cli.repos, {
+      token: env.GITHUB_TOKEN,
+      apiUrl: cli.apiUrl,
+      config,
+      now: options.now,
+      onWarning: (repo, warning) => warn(`${repo}: ${warning}`),
+    });
+  } catch (error) {
+    warn(describe(error));
+    return EXIT_SCAN_FAILED;
+  }
+
   stdout(`${render(report, cli.format)}\n`);
 
   if (cli.failBelow === undefined) return EXIT_OK;

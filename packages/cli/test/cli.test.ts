@@ -1,13 +1,17 @@
+import { rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import type { RepoAssessment, RuleResult } from '@fettle/core';
+import { buildHealthReport, type RuleResult } from '@fettle/core';
 import {
   EXIT_BELOW_FLOOR,
   EXIT_OK,
+  EXIT_SCAN_FAILED,
   EXIT_USAGE,
   parseCliOptions,
   run,
   UsageError,
-  type Assessor,
+  type Scanner,
 } from '../src/cli.js';
 
 const GENERATED_AT = new Date('2026-08-15T09:30:00.000Z');
@@ -17,12 +21,12 @@ function rules(score: number): RuleResult[] {
 }
 
 /** Returns a fixed score per repository, so the command is testable without a network. */
-function assessorFor(scores: Record<string, number>): Assessor {
-  return async (repo): Promise<RepoAssessment> => ({
-    repo,
-    defaultBranch: 'main',
-    rules: rules(scores[repo] ?? 100),
-  });
+function scannerFor(scores: Record<string, number>): Scanner {
+  return async (repos) =>
+    buildHealthReport(
+      repos.map((repo) => ({ repo, defaultBranch: 'main', rules: rules(scores[repo] ?? 100) })),
+      GENERATED_AT,
+    );
 }
 
 async function invoke(argv: string[], overrides: Partial<Parameters<typeof run>[0]> = {}) {
@@ -33,7 +37,7 @@ async function invoke(argv: string[], overrides: Partial<Parameters<typeof run>[
     argv,
     env: {},
     now: GENERATED_AT,
-    assess: assessorFor({}),
+    scan: scannerFor({}),
     stdout: (chunk) => {
       stdout += chunk;
     },
@@ -65,10 +69,16 @@ describe('parseCliOptions', () => {
     ]);
   });
 
-  it('defaults format to json and config to .repohealth.yml', () => {
+  it('defaults format to json, and leaves each repository to supply its own config', () => {
     const options = parseCliOptions(['--repos', 'org/a']);
     expect(options.format).toBe('json');
-    expect(options.configPath).toBe('.repohealth.yml');
+    expect(options.configPath).toBeUndefined();
+  });
+
+  it('records a local config file when one is given', () => {
+    expect(parseCliOptions(['--repos', 'org/a', '--config', 'policy.yml']).configPath).toBe(
+      'policy.yml',
+    );
   });
 
   it('reads the API URL from the environment for GHES', () => {
@@ -163,7 +173,7 @@ describe('run', () => {
 
   it('exits 0 when every repository meets the floor', async () => {
     const { exitCode } = await invoke(['--repos', 'org/a', '--fail-below', 'C'], {
-      assess: assessorFor({ 'org/a': 85 }),
+      scan: scannerFor({ 'org/a': 85 }),
     });
     expect(exitCode).toBe(EXIT_OK);
   });
@@ -172,7 +182,7 @@ describe('run', () => {
     const { exitCode, stdout, stderr } = await invoke(
       ['--repos', 'org/a,org/b', '--fail-below', 'C'],
       {
-        assess: assessorFor({ 'org/a': 55, 'org/b': 95 }),
+        scan: scannerFor({ 'org/a': 55, 'org/b': 95 }),
       },
     );
 
@@ -184,19 +194,86 @@ describe('run', () => {
 
   it('exits 0 without a floor, however bad the grade', async () => {
     const { exitCode } = await invoke(['--repos', 'org/a'], {
-      assess: assessorFor({ 'org/a': 0 }),
+      scan: scannerFor({ 'org/a': 0 }),
     });
     expect(exitCode).toBe(EXIT_OK);
   });
 
+  it('applies a local --config file to every repository', async () => {
+    const path = join(tmpdir(), `fettle-policy-${process.pid}.yml`);
+    await writeFile(path, 'rules:\n  codeowners:\n    weight: 7\n');
+
+    try {
+      let seen: unknown;
+      await invoke(['--repos', 'org/a', '--config', path], {
+        scan: async (repos, options) => {
+          seen = options.config;
+          return scannerFor({})(repos, options);
+        },
+      });
+
+      expect(seen).toMatchObject({ rules: { codeowners: { weight: 7 } } });
+    } finally {
+      await rm(path, { force: true });
+    }
+  });
+
+  it('exits 2 when the --config file does not exist', async () => {
+    const { exitCode, stderr } = await invoke([
+      '--repos',
+      'org/a',
+      '--config',
+      join(tmpdir(), 'fettle-does-not-exist.yml'),
+    ]);
+
+    expect(exitCode).toBe(EXIT_USAGE);
+    expect(stderr).toContain('ENOENT');
+  });
+
+  it('exits 2 when the --config file is invalid, quoting the offending path', async () => {
+    const path = join(tmpdir(), `fettle-bad-${process.pid}.yml`);
+    await writeFile(path, 'rules:\n  codeowners:\n    weight: heavy\n');
+
+    try {
+      const { exitCode, stderr } = await invoke(['--repos', 'org/a', '--config', path]);
+      expect(exitCode).toBe(EXIT_USAGE);
+      expect(stderr).toContain('rules.codeowners.weight must be a number');
+    } finally {
+      await rm(path, { force: true });
+    }
+  });
+
+  it('warns when no token is set, since anonymous scans hide private repositories', async () => {
+    const { stderr } = await invoke(['--repos', 'org/a']);
+    expect(stderr).toContain('no $GITHUB_TOKEN set');
+  });
+
+  it('stays quiet about the token when one is set', async () => {
+    const { stderr } = await invoke(['--repos', 'org/a'], { env: { GITHUB_TOKEN: 'secret' } });
+    expect(stderr).not.toContain('GITHUB_TOKEN');
+  });
+
+  it('passes the token and API URL through to the scan', async () => {
+    let seen: { token?: string; apiUrl?: string } = {};
+    await invoke(['--repos', 'org/a', '--api-url', 'https://ghes/api/v3'], {
+      env: { GITHUB_TOKEN: 'secret' },
+      scan: async (repos, options) => {
+        seen = { token: options.token, apiUrl: options.apiUrl };
+        return scannerFor({})(repos, options);
+      },
+    });
+
+    expect(seen).toEqual({ token: 'secret', apiUrl: 'https://ghes/api/v3' });
+  });
+
   it('reports an assessment failure on stderr rather than crashing', async () => {
     const { exitCode, stderr } = await invoke(['--repos', 'org/a'], {
-      assess: async () => {
+      scan: async () => {
         throw new Error('token rejected');
       },
     });
 
-    expect(exitCode).toBe(EXIT_USAGE);
+    expect(exitCode).toBe(EXIT_SCAN_FAILED);
     expect(stderr).toContain('token rejected');
   });
 });

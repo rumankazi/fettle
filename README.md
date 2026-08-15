@@ -3,10 +3,9 @@
 Grade the maintenance health of your GitHub repositories — five explainable rules,
 weighted scoring, a letter grade, and evidence for every result.
 
-> **Status: pre-release (v0.1.0).** The scoring engine is complete and tested. The
-> GitHub fetch layer is not built yet, so the CLI and the Action cannot scan a live
-> repository — both exit with an explicit message rather than reporting a grade they
-> did not measure. See [Roadmap](#roadmap).
+> **Status: pre-release (v0.1.0).** The CLI and the library scan live repositories
+> on github.com and GitHub Enterprise Server. The GitHub Action wrapper is not built
+> yet. See [Roadmap](#roadmap).
 
 ## What it measures
 
@@ -22,35 +21,59 @@ Scoring is a weighted average, and a check we could not run scores nothing at al
 it leaves both sides of the average, so a narrow token never costs you points. The
 full math is in [SCORING.md](SCORING.md), which is normative.
 
-## Usage today: the library
+## Quick start: the CLI
+
+```bash
+export GITHUB_TOKEN=...            # a PAT, or ${{ github.token }} in Actions
+npx @fettle/cli --repos vitest-dev/vitest --format markdown
+```
+
+```
+## vitest-dev/vitest
+
+**Grade F** — score 55.6 (default branch `main`)
+
+| Rule | Status | Score | Weight | Evidence |
+| --- | --- | ---: | ---: | --- |
+| `branch_protection` | pass | 100 | 3 | Default branch 'main' is protected: ruleset 'Protect releases' (…). |
+| `codeowners` | fail | 0 | 1 | No CODEOWNERS file at any of .github/CODEOWNERS, CODEOWNERS, docs/CODEOWNERS. … |
+| `dependency_updates` | pass | 100 | 2 | Dependency update config found at .github/renovate.json5. |
+| `open_pr_count` | fail | 0 | 1 | 44 open non-draft pull request(s); 10 or fewer scores 100, 30 or more scores 0. |
+| `stale_prs` | fail | 0 | 2 | 26 pull request(s) open more than 21 day(s) with no commit in the last 7 day(s); … |
+```
+
+Scan several at once, gate a build on the result, and point at a GHES instance:
+
+```bash
+fettle --repos acme/api,acme/web --format json > report.json
+fettle --repos acme/api --fail-below C            # exit 1 if it grades below C
+fettle --repos acme/api --api-url https://ghe.acme.com/api/v3
+fettle --repos acme/api,acme/web --config policy.yml   # one policy for the fleet
+```
+
+Exit codes: `0` success, `1` a repository graded below `--fail-below`, `2` invalid
+usage, `3` a repository or its configuration could not be read.
+
+## Usage: the library
 
 ```bash
 pnpm add @fettle/core
 ```
 
 ```ts
-import { assessContext, defaultConfig, renderMarkdown, buildHealthReport } from '@fettle/core';
+import { assess, renderMarkdown } from '@fettle/core';
 
-const report = assessContext(
-  {
-    owner: 'acme',
-    repo: 'demo',
-    defaultBranch: 'main',
-    now: new Date(),
-    existingPaths: { available: true, value: ['.github/CODEOWNERS'] },
-    branchProtection: { available: false, reason: 'token lacks administration:read' },
-    pullRequests: { available: true, value: [] },
-  },
-  defaultConfig,
-);
+const report = await assess(['acme/api', 'acme/web'], { token: process.env.GITHUB_TOKEN });
 
-console.log(report.grade, report.score); // 'D' 66.7
+console.log(report.fleet.averageScore);
+console.log(renderMarkdown(report));
 ```
 
-Building the `RepoContext` from the GitHub API is the piece still to come. Every
-field is a `Probe`: either `{ available: true, value }` or `{ available: false,
-reason }`, where `reason` becomes the evidence the user reads. A rule cannot look at
-a value without deciding what to do when it is missing.
+`assess` fetches, configures and scores. If you already have the data — or want to
+score without a network — `assessContext` takes a `RepoContext` directly. Every
+field on it is a `Probe`: either `{ available: true, value }` or `{ available:
+false, reason }`, where `reason` becomes the evidence the user reads. A rule cannot
+look at a value without deciding what to do when it is missing.
 
 ## Configuration
 
@@ -136,6 +159,20 @@ With a default token, `branch_protection` reports `na` and the report tells you 
 granting `administration:read` would unlock. It is never a `fail` — a permission
 error is not evidence of poor health.
 
+Running with no token at all works for public repositories, but GraphQL requires
+authentication, so the two pull request rules will report `na`.
+
+## Cost and limits
+
+A scan costs about eight requests per repository: one for metadata, up to three to
+walk the file tree, one or two for branch protection, one for `.repohealth.yml`, and
+one GraphQL query for pull requests.
+
+Two caps are worth knowing about. Pull request pagination stops after 500 open PRs
+and reports the counts as a lower bound, saying so in the evidence. And Octokit's
+throttling plugin paces GraphQL at one request per second, so a fleet scan settles at
+roughly one repository per second however many run concurrently.
+
 ## GitHub Enterprise Server
 
 Nothing hardcodes `api.github.com`. The base URL comes from `--api-url`, then
@@ -160,9 +197,9 @@ pnpm cli -- --help
 | ----- | ------------------------------------------------- | ----------- |
 | 0     | Workspace, tooling, CI                            | done        |
 | 1     | Types, config loading and validation, API client  | done        |
-| 2     | GitHub fetch layer (`RepoContext`) and live rules | not started |
+| 2     | GitHub fetch layer (`RepoContext`) and live rules | done        |
 | 3     | Scoring and report assembly                       | done        |
-| 4     | CLI wired to the fetch layer                      | not started |
+| 4     | CLI wired to the fetch layer                      | done        |
 | 5     | GitHub Action (`action.yml`, summary, outputs)    | not started |
 | 6     | Docs, badge setup, release                        | not started |
 

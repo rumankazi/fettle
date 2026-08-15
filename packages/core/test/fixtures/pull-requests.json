@@ -1,0 +1,35 @@
+{
+  "data": {
+    "repository": {
+      "pullRequests": {
+        "pageInfo": { "hasNextPage": false, "endCursor": "Y3Vyc29yOnYyOpHOAAAAAg==" },
+        "nodes": [
+          {
+            "number": 101,
+            "createdAt": "2026-08-14T09:00:00Z",
+            "isDraft": false,
+            "commits": { "nodes": [{ "commit": { "committedDate": "2026-08-14T10:15:00Z" } }] }
+          },
+          {
+            "number": 102,
+            "createdAt": "2026-06-01T09:00:00Z",
+            "isDraft": false,
+            "commits": { "nodes": [{ "commit": { "committedDate": "2026-06-02T09:00:00Z" } }] }
+          },
+          {
+            "number": 103,
+            "createdAt": "2026-05-01T09:00:00Z",
+            "isDraft": true,
+            "commits": { "nodes": [{ "commit": { "committedDate": "2026-05-01T09:00:00Z" } }] }
+          },
+          {
+            "number": 104,
+            "createdAt": "2026-04-01T09:00:00Z",
+            "isDraft": false,
+            "commits": { "nodes": [] }
+          }
+        ]
+      }
+    }
+  }
+}

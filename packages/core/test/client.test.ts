@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { GITHUB_COM_API_URL, resolveApiBaseUrl } from '../src/github/client.js';
+import {
+  GITHUB_COM_API_URL,
+  resolveApiBaseUrl,
+  shouldRetryRateLimit,
+} from '../src/github/client.js';
 
 describe('resolveApiBaseUrl', () => {
   it('defaults to github.com when nothing is configured', () => {
@@ -32,5 +36,24 @@ describe('resolveApiBaseUrl', () => {
     expect(resolveApiBaseUrl({}, 'https://ghes.example.com/api/v3/')).toBe(
       'https://ghes.example.com/api/v3',
     );
+  });
+});
+
+describe('shouldRetryRateLimit', () => {
+  it('waits out a short backoff', () => {
+    expect(shouldRetryRateLimit(1, 0)).toBe(true);
+    expect(shouldRetryRateLimit(60, 0)).toBe(true);
+  });
+
+  it('gives up rather than sleeping through a long one', () => {
+    // An exhausted primary rate limit resets on the hour. Accepting Octokit's
+    // offer to retry would park a CI job for that whole time with no output.
+    expect(shouldRetryRateLimit(61, 0)).toBe(false);
+    expect(shouldRetryRateLimit(3600, 0)).toBe(false);
+  });
+
+  it('stops after a couple of attempts', () => {
+    expect(shouldRetryRateLimit(1, 1)).toBe(true);
+    expect(shouldRetryRateLimit(1, 2)).toBe(false);
   });
 });

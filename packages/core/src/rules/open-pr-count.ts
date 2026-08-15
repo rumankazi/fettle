@@ -18,16 +18,18 @@ export const openPrCountRule: Rule<'open_pr_count'> = {
       return notApplicable('open_pr_count', settings, probe);
     }
 
-    const openPrs = probe.value.filter((pr) => !pr.isDraft);
+    const { items, truncated } = probe.value;
+    const openPrs = items.filter((pr) => !pr.isDraft);
 
     return threshold(
       'open_pr_count',
       settings,
       openPrs.length,
       (score) =>
-        `${openPrs.length} open non-draft pull request(s); ` +
+        `${truncated ? 'At least ' : ''}${openPrs.length} open non-draft pull request(s)` +
+        `${truncated ? ' (the scan stopped paging before the end)' : ''}; ` +
         `${settings.good_at} or fewer scores 100, ${settings.bad_at} or more scores 0 (scored ${score}).`,
-      { draftsExcluded: probe.value.length - openPrs.length },
+      { draftsExcluded: items.length - openPrs.length, truncated },
     );
   },
 };

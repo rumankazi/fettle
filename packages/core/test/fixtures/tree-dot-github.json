@@ -1,0 +1,30 @@
+{
+  "sha": "aa11bb22cc33dd44ee55ff6677889900aabbccdd",
+  "url": "https://api.github.com/repos/acme/demo/git/trees/aa11bb22",
+  "truncated": false,
+  "tree": [
+    {
+      "path": "CODEOWNERS",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3333333333333333333333333333333333333333",
+      "size": 96,
+      "url": "https://api.github.com/repos/acme/demo/git/blobs/33333333"
+    },
+    {
+      "path": "dependabot.yml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4444444444444444444444444444444444444444",
+      "size": 210,
+      "url": "https://api.github.com/repos/acme/demo/git/blobs/44444444"
+    },
+    {
+      "path": "workflows",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "5555555555555555555555555555555555555555",
+      "url": "https://api.github.com/repos/acme/demo/git/trees/55555555"
+    }
+  ]
+}

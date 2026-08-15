@@ -101,6 +101,16 @@ export interface BranchProtection {
   description: string;
 }
 
+export interface PullRequestData {
+  /** Open pull requests, drafts included; rules filter per SCORING.md §2. */
+  items: readonly PullRequestSummary[];
+  /**
+   * True when the repository has more open pull requests than the fetcher was
+   * willing to page through. Counts are then a lower bound, and rules say so.
+   */
+  truncated: boolean;
+}
+
 export interface PullRequestSummary {
   number: number;
   /** ISO-8601 timestamp. */
@@ -126,8 +136,7 @@ export interface RepoContext {
   /** Paths confirmed to exist in the repo, among the locations the fetcher probed. */
   existingPaths: Probe<readonly string[]>;
   branchProtection: Probe<BranchProtection>;
-  /** All open pull requests, drafts included; rules filter per SCORING.md §2. */
-  pullRequests: Probe<readonly PullRequestSummary[]>;
+  pullRequests: Probe<PullRequestData>;
 }
 
 /**

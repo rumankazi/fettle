@@ -1,0 +1,15 @@
+{
+  "sha": "bb22cc33dd44ee55ff6677889900aabbccddeeff",
+  "url": "https://api.github.com/repos/acme/demo/git/trees/bb22cc33",
+  "truncated": false,
+  "tree": [
+    {
+      "path": "index.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6666666666666666666666666666666666666666",
+      "size": 1024,
+      "url": "https://api.github.com/repos/acme/demo/git/blobs/66666666"
+    }
+  ]
+}

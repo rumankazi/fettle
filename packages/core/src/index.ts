@@ -1,15 +1,16 @@
 /**
  * Public entry point for the library.
  *
- * The scoring pipeline is pure: hand it a `RepoContext` and a config and it returns
- * a report. Fetching a `RepoContext` from the GitHub API lands in Phase 2; until
- * then this package deliberately exposes no function that pretends to have done so.
+ * `assess` scans live repositories; `assessContext` scores an already-fetched
+ * context, which is the seam that keeps the scoring pipeline pure and testable
+ * without a network.
  */
 
 import { evaluateRules } from './rules/rule.js';
 import { buildHealthReport, buildRepoReport, type RepoAssessment } from './report.js';
 import type { HealthReport, RepoContext, RepoReport, ResolvedConfig } from './types.js';
 
+export { assess, assessRepo, type AssessOptions } from './assess.js';
 export { BADGE_LABEL, CONFIG_FILENAME, TOOL_NAME, TOOL_VERSION } from './branding.js';
 export {
   ConfigError,
@@ -25,9 +26,19 @@ export {
   createGitHubClient,
   GITHUB_COM_API_URL,
   resolveApiBaseUrl,
+  shouldRetryRateLimit,
   type GitHubClient,
   type GitHubClientOptions,
 } from './github/client.js';
+export {
+  createRepoFileReader,
+  fetchRepoContext,
+  formatRepoRef,
+  parseRepoRef,
+  RepoAccessError,
+  type FetchContextOptions,
+  type RepoRef,
+} from './github/context.js';
 export { available, unavailable } from './probe.js';
 export {
   badgeFilename,

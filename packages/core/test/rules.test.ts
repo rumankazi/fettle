@@ -7,7 +7,7 @@ import { dependencyUpdatesRule } from '../src/rules/dependency-updates.js';
 import { openPrCountRule } from '../src/rules/open-pr-count.js';
 import { evaluateRules, ruleOrder } from '../src/rules/rule.js';
 import { stalePrsRule } from '../src/rules/stale-prs.js';
-import { daysAgo, NOW, pullRequest, repoContext } from './helpers/context.js';
+import { daysAgo, NOW, pullRequest, pullRequests, repoContext } from './helpers/context.js';
 
 const settings = defaultConfig.rules;
 
@@ -111,7 +111,7 @@ describe('open_pr_count', () => {
   function scoreFor(count: number): number | null {
     const prs = Array.from({ length: count }, (_, index) => pullRequest({ number: index + 1 }));
     return openPrCountRule.evaluate(
-      repoContext({ pullRequests: available(prs) }),
+      repoContext({ pullRequests: pullRequests(prs) }),
       settings.open_pr_count,
     ).score;
   }
@@ -133,7 +133,7 @@ describe('open_pr_count', () => {
   it('passes only on full marks, so partial credit reads as a shortfall', () => {
     const prs = Array.from({ length: 14 }, (_, index) => pullRequest({ number: index + 1 }));
     const result = openPrCountRule.evaluate(
-      repoContext({ pullRequests: available(prs) }),
+      repoContext({ pullRequests: pullRequests(prs) }),
       settings.open_pr_count,
     );
     expect(result.status).toBe('fail');
@@ -143,7 +143,7 @@ describe('open_pr_count', () => {
   it('excludes drafts, which are declared work-in-progress rather than neglect', () => {
     const result = openPrCountRule.evaluate(
       repoContext({
-        pullRequests: available([
+        pullRequests: pullRequests([
           pullRequest({ number: 1 }),
           pullRequest({ number: 2, isDraft: true }),
           pullRequest({ number: 3, isDraft: true }),
@@ -163,13 +163,28 @@ describe('open_pr_count', () => {
     expect(result.status).toBe('na');
     expect(result.score).toBeNull();
   });
+
+  it('says so when the count is only a lower bound', () => {
+    const prs = Array.from({ length: 3 }, (_, index) => pullRequest({ number: index + 1 }));
+    const result = openPrCountRule.evaluate(
+      repoContext({ pullRequests: pullRequests(prs, true) }),
+      settings.open_pr_count,
+    );
+
+    expect(result.evidence).toContain('At least 3 open non-draft pull request(s)');
+    expect(result.evidence).toContain('stopped paging');
+    expect(result.details).toMatchObject({ truncated: true });
+  });
 });
 
 describe('stale_prs', () => {
   const stale = () => pullRequest({ createdAt: daysAgo(30), lastCommitAt: daysAgo(10) });
 
   function evaluate(prs: ReturnType<typeof pullRequest>[]) {
-    return stalePrsRule.evaluate(repoContext({ pullRequests: available(prs) }), settings.stale_prs);
+    return stalePrsRule.evaluate(
+      repoContext({ pullRequests: pullRequests(prs) }),
+      settings.stale_prs,
+    );
   }
 
   it('counts a PR open past open_days with no commit inside inactive_days', () => {
@@ -219,10 +234,20 @@ describe('stale_prs', () => {
     expect(result.details).toMatchObject({ stalePrNumbers: [42] });
   });
 
+  it('says so when the count is only a lower bound', () => {
+    const result = stalePrsRule.evaluate(
+      repoContext({ pullRequests: pullRequests([stale()], true) }),
+      settings.stale_prs,
+    );
+
+    expect(result.evidence).toContain('At least 1 pull request(s)');
+    expect(result.details).toMatchObject({ truncated: true });
+  });
+
   it('respects a configured inactive_days window', () => {
     const result = stalePrsRule.evaluate(
       repoContext({
-        pullRequests: available([
+        pullRequests: pullRequests([
           pullRequest({ createdAt: daysAgo(30), lastCommitAt: daysAgo(10) }),
         ]),
       }),
@@ -270,7 +295,7 @@ describe('the registry', () => {
     const results = evaluateRules(
       repoContext({
         now: NOW,
-        pullRequests: available([
+        pullRequests: pullRequests([
           pullRequest({ createdAt: daysAgo(30), lastCommitAt: daysAgo(10) }),
         ]),
       }),

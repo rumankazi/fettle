@@ -8,6 +8,11 @@ export function daysAgo(days: number, from: Date = NOW): string {
   return new Date(from.getTime() - days * 24 * 60 * 60 * 1000).toISOString();
 }
 
+/** Wraps a list of pull requests in the shape the context carries. */
+export function pullRequests(items: PullRequestSummary[], truncated = false) {
+  return available({ items, truncated });
+}
+
 export function pullRequest(overrides: Partial<PullRequestSummary> = {}): PullRequestSummary {
   return {
     number: 1,
@@ -31,7 +36,7 @@ export function repoContext(overrides: Partial<RepoContext> = {}): RepoContext {
       source: 'ruleset',
       description: "ruleset 'main-protection'",
     }),
-    pullRequests: available([]),
+    pullRequests: available({ items: [], truncated: false }),
     ...overrides,
   };
 }

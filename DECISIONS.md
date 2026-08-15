@@ -75,17 +75,20 @@ poor health. Failing a build because a token was too narrow would punish exactly
 case the `na` design exists to protect. The markdown report calls out what could not
 be run, so the situation is visible rather than silent.
 
-## D8 — No `assess(repo)` until the fetch layer exists
+## D8 — Nothing reports a grade it did not measure
 
-`ARCHITECTURE.md` lists `assess()` among core's public exports. Core currently
-exports `assessContext` / `assessContexts`, which score an already-fetched context,
-and the CLI and Action exit with an explicit "not implemented yet" message.
-
-**Why:** an earlier revision shipped an `assess()` that returned hardcoded results
+An earlier revision shipped an `assess()` that returned hardcoded results
 resembling the `SCORING.md` §7 worked example without making a single API call. The
 CLI, the Action and their tests all depended on it, so the suite was green while the
-tool measured nothing. A function that fails loudly is strictly better than one that
-fabricates a grade. `assess()` arrives with the fetcher in Phase 2.
+tool measured nothing.
+
+It was deleted rather than patched, and until the fetch layer existed core exported
+only `assessContext` — scoring over an already-fetched context — while the CLI
+exited with an explicit "not implemented yet". `assess()` now exists and is real.
+
+**Why it is recorded:** a function that fails loudly is strictly better than one
+that fabricates a grade, and `assessContext` remains exported because that seam is
+what keeps the scoring pipeline testable without a network.
 
 ## D9 — Recorded API fixtures arrive with the fetcher
 
@@ -107,3 +110,70 @@ of `defaultConfig`, rather than against a separately written schema.
 hundred lines, and it cannot drift: a new setting becomes valid the moment it is
 given a default. Semantic constraints that shape alone cannot express — `good_at <
 bad_at`, non-negative weights — are checked explicitly afterwards.
+
+## D11 — File discovery walks git trees instead of probing each location
+
+The fetcher reads the root tree, then the `.github` and `docs` subtrees by sha,
+rather than asking whether each of the eleven candidate files exists.
+
+**Why:** the request budget is about ten per repository (`ARCHITECTURE.md` §API
+strategy) and the rules between them check eleven paths. Three tree reads answer
+all of them, cost nothing extra as rules are added, and avoid escaping paths into
+URLs. A subtree we cannot read contributes no paths, which lands the affected rule
+on `fail` — the same conclusion a person browsing the repository would reach.
+
+## D12 — A legacy "branch not protected" 404 is only believed once rulesets have been read
+
+`fetchBranchProtection` treats the legacy endpoint's 404 as a genuine negative only
+when the rulesets endpoint answered first and returned nothing. Otherwise it is
+`na`.
+
+**Why:** 404 from that endpoint means "no legacy protection", not "no protection".
+If rulesets were unreadable, a ruleset we never saw may well be protecting the
+branch, and reporting `fail` would invent a finding. This is the one place where
+the two endpoints' answers have to be combined rather than taken in isolation.
+
+## D13 — Pull request pagination stops after five pages and says so
+
+At most 500 open pull requests are read. Beyond that the counts are reported as a
+lower bound, with `truncated: true` in the details and "At least N" in the
+evidence.
+
+**Why:** repositories like `octocat/Hello-World` have thousands of open PRs. An
+uncapped crawl took thirty seconds and twenty requests for a single repository,
+against a ten-request budget. Any repository past 500 open PRs scores zero under
+any sane threshold, so the cap costs no accuracy that matters — but the report says
+plainly that it stopped counting rather than implying an exact figure.
+
+## D14 — Rate limits are waited out only if the wait is short
+
+`shouldRetryRateLimit` accepts a retry only when GitHub asks for 60 seconds or
+less.
+
+**Why:** Octokit's throttling plugin will sleep for whatever `retry-after` says, and
+an exhausted _primary_ rate limit resets on the hour. Accepting every retry parked a
+scan for up to an hour with no output — the first live run of the CLI hung exactly
+this way. A secondary limit clears in seconds and is worth waiting for; anything
+longer should fail fast. The resulting error carries the reset time and tells the
+user to authenticate.
+
+## D15 — A rate-limited 403 is reported as such, not as a missing permission
+
+`rateLimitHint` inspects `x-ratelimit-remaining` before any 403 is attributed to
+permissions.
+
+**Why:** GitHub answers both "you may not do this" and "you have asked too often"
+with a 403. Without the check, every rate-limited scan told the user to grant
+`administration:read` they already had — actively misleading, and the opposite of
+the evidence guarantee.
+
+## D16 — GraphQL is paced at one request per second, and we live with it
+
+Octokit's throttling plugin routes every GraphQL request — including read-only
+queries like ours — through a one-per-second limiter shared across the process.
+
+**Why not work around it:** the pacing is the plugin doing its job, and a
+maintenance-health scan is not latency-sensitive. The consequence is documented on
+`GitHubClientOptions.throttle` because it is the real ceiling on fleet throughput:
+one repository per second, whatever `maxConcurrency` says. Tests disable throttling
+rather than serialise on it.
