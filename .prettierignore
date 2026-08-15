@@ -1,0 +1,4 @@
+# Generated output. The Action bundle is committed but esbuild owns its
+# formatting, not Prettier.
+dist
+pnpm-lock.yaml
