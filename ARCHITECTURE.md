@@ -125,6 +125,7 @@ input repos[] ──► for each repo:
 
 ## Distribution
 
-- Action: committed `dist/`, tagged releases, `v1` floating major tag, Marketplace
-  listing after Phase 4.
+- Action: committed `dist/`, tagged releases, `v1` floating major tag.
+  **The Marketplace requires `action.yml` at the repository root** — metadata in a
+  sub-folder is usable via `owner/repo/path@ref` but is never listed.
 - CLI + core: npm packages under one scope. CLI runnable via `npx`.
