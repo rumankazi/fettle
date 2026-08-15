@@ -50,7 +50,7 @@ jobs:
     steps:
       # A short-lived installation token, so the release pull request is authored by
       # the App and therefore does trigger the checks that must run on it.
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
         id: app-token
         if: vars.FETTLE_APP_CLIENT_ID != ''
         with:
