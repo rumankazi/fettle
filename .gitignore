@@ -11,3 +11,11 @@ dist
 !packages/action/dist/index.js
 
 *.tsbuildinfo
+
+# Credentials. A GitHub App private key sitting in the working tree is one
+# `git add -A` away from being public, and this repository is public.
+*.pem
+*.p12
+*.key
+.env
+.env.*
