@@ -1,6 +1,6 @@
 {
   "name": "@fettle/action",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "GitHub Action wrapper around the maintenance-health grading engine.",
   "license": "MIT",
   "homepage": "https://github.com/rumankazi/fettle#readme",
