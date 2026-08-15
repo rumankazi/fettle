@@ -367,3 +367,27 @@ runtime dependencies that ship inside the Action bundle.
 
 The config is `.json5` so it can carry its reasoning inline — and, pleasingly, the
 `dependency_updates` rule already looks for that filename.
+
+## D28 — npm publishing is trusted publishing, because token publishing is closing
+
+The release workflow supports a token, but the supported path is OIDC.
+
+**Why:** the first token-based publish failed with `EOTP — This operation requires a
+one-time password`, alongside npm's own notice that
+[tokens which bypass 2FA are being restricted](https://gh.io/npm-gat-bypass2fa-deprecation)
+for direct publishing. An account with two-factor authentication covering writes
+cannot publish from CI with a token at all, because nothing in CI can answer the
+prompt. The workarounds — weakening the account's 2FA, or a token that bypasses it —
+both trade a real protection for convenience, on packages other people install.
+
+Trusted publishing sidesteps it: npm authenticates _the workflow_ rather than an
+account, so two-factor authentication is not part of the exchange, and no long-lived
+credential exists to leak or rotate.
+
+The token path stays in the workflow for accounts where 2FA does not cover writes,
+and as the documented fallback — but `CONTRIBUTING.md` no longer presents it as the
+easy option, because it is not.
+
+**The consequence:** the first version of each package has to be published by hand,
+since a trusted publisher can only be configured on a package that exists. That one
+version lacks provenance. Everything after it is signed by the release workflow.
