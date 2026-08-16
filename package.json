@@ -2,7 +2,7 @@
   "name": "fettle-monorepo",
   "private": true,
   "type": "module",
-  "version": "3.0.3",
+  "version": "4.0.0",
   "packageManager": "pnpm@11.22.0",
   "engines": {
     "node": ">=22"
