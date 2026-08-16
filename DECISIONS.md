@@ -183,6 +183,9 @@ rather than serialise on it.
 
 ## D17 — The Action bundle carries a `createRequire` banner
 
+> **Superseded by D35.** `@actions/core` was the only CommonJS dependency (D30) and
+> is gone, so the banner was removed along with it.
+
 `packages/action/build.mjs` prepends a real `require` to the ESM bundle.
 
 **Why:** `@actions/core` is CommonJS, and esbuild's ESM output replaces `require`
@@ -490,6 +493,8 @@ The Action bundle went from 236 kB to 176 kB.
 
 ## D33 — Node 20 stays the floor, and CI tests both ends of the range
 
+> **Superseded by D35.** The floor moved to Node 22.
+
 `engines` remains `>=20` and the Action's `runs.using` remains `node20`. CI's
 `verify` job runs on Node 20 and 24.
 
@@ -538,3 +543,34 @@ source, because it is committed. That is noisy — dependency code we cannot fix
 up as our alerts — but it caught a real bug in `report.ts` and a supply-chain
 regression in `@octokit/core` v7 that `pnpm audit`, Socket and Snyk all passed. Worth
 the noise; `dist/` stays in scope.
+
+## D35 — Node 22 is the floor, and the Action runs on node24
+
+`engines` is `>=22`, `runs.using` is `node24`, the bundle targets `node24`, and CI
+runs 22, 24 and 26.
+
+**What forced the question:** pnpm 11 requires Node `>=22.13`, so a Node 20 test leg
+and pnpm 11 cannot coexist. That is a development-tool constraint and does not by
+itself justify dropping a supported runtime — but Node 20 reached end of life on
+30 April 2026, so the honest answer was to stop claiming it rather than to work
+around the symptom.
+
+D33 argued for keeping `node20` because the runner supplies that Node, making its
+end of life GitHub's problem rather than ours. That still holds in isolation. What it
+did not weigh is the cost of a floor that every tool in the chain is walking away
+from: keeping it means holding pnpm back, and then the next thing, indefinitely.
+
+**What it costs:** GitHub Enterprise Server bundles its own runner versions and lags
+github.com, so an instance whose runner predates `node24` support can no longer run
+the Action. `SPEC.md` commits to GHES, so this is the real price and it is worth
+being plain about. Instances that old are already outside GitHub's own support
+window, which is why it is acceptable rather than free.
+
+**Kept coherent deliberately.** `engines`, `runs.using` and the esbuild target now
+say the same thing, and a test asserts the last two agree — the previous version
+pinned `runs.using` to a literal, which is what made it possible for them to drift
+apart in the first place.
+
+The `createRequire` banner went too. `@actions/core` was the only CommonJS
+dependency, and the bundle loads without it; CI runs the built artefact on every
+pull request, which is what would catch a regression.

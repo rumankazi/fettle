@@ -1,9 +1,3 @@
-// `@actions/core` is CommonJS. When esbuild emits ESM it replaces `require`
-// with a shim that throws unless a real `require` is in scope, so put one
-// there. Without this the bundle dies on load with "Dynamic require of
-// \"os\" is not supported".
-import { createRequire as __fettleCreateRequire } from 'node:module';
-const require = __fettleCreateRequire(import.meta.url);
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;

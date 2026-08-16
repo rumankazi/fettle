@@ -19,18 +19,17 @@ jobs:
   verify:
     # Every version we claim to run on, and the one we will claim next.
     #
-    #   20 — the floor. `engines` says >=20 and the Action's `runs.using` is node20,
-    #        so this is the version a break would actually reach users through.
-    #   24 — the current active LTS, and what the release job publishes from.
-    #   26 — the newest release. Nothing pins us to it yet, but it becomes an LTS
-    #        that people upgrade to, and finding a break here costs a rebase rather
-    #        than a hotfix.
+    #   22 — the floor. `engines` says >=22, and pnpm itself needs >=22.13.
+    #   24 — the current active LTS, what `runs.using` provides, and what the
+    #        release job publishes from.
+    #   26 — the newest release. Nothing pins us to it, but it is what people
+    #        upgrade to next, and a break found here costs a rebase not a hotfix.
     #
     # fail-fast is off so one version's failure does not hide another's.
     strategy:
       fail-fast: false
       matrix:
-        node: [20, 24, 26]
+        node: [22, 24, 26]
 
     name: verify (node ${{ matrix.node }})
     runs-on: ubuntu-latest

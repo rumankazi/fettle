@@ -51,7 +51,7 @@ outputs:
     description: 'Path to the written `report.json`.'
 
 runs:
-  using: 'node20'
+  using: 'node24'
   # Relative to this file. The bundle stays inside the package that builds it; only
   # the manifest has to sit at the root, because the Marketplace lists nothing else.
   main: 'packages/action/dist/index.js'
