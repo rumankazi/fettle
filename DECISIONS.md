@@ -234,6 +234,9 @@ constant (`BADGE_LABEL`) if that judgement is ever reversed.
 
 ## D20 — Evidence is escaped before it reaches markdown
 
+> **Amended by D34.** The first implementation escaped pipes but not backslashes,
+> which left the hole it was written to close.
+
 `renderMarkdown` flattens newlines and escapes pipes in every evidence string,
 in the table and in the "checks we could not run" list alike.
 
@@ -508,3 +511,24 @@ matrix covers the floor and the current active LTS.
 
 **Revisit when** GHES ships a runner that supports `node24` in a release we are happy
 to make the minimum. That is a single-line change to `action.yml`, plus the matrix.
+
+## D34 — Escape backslashes before pipes, and the order is the point
+
+`escapeMarkdown` escapes `\` first, then `|`, then flattens newlines.
+
+**Why:** D20 claimed a scanned repository could not restructure a report about
+itself. It could. Escaping only pipes turned `a\|b` into `a\\|b`, where `\\`
+renders as one literal backslash and frees the pipe after it to end the cell. A
+repository that can name a ruleset could add a column. CodeQL's
+`js/incomplete-sanitization` found it — "this does not escape backslash characters
+in the input" — on code written specifically to prevent that class of problem.
+
+The test counts cell boundaries in every rendered row and compares them to the
+header, rather than asserting on the escaped string. It fails against the old
+implementation, which is the only reason to trust it.
+
+**The wider lesson:** the bundled Action is scanned by CodeQL as if it were our own
+source, because it is committed. That is noisy — dependency code we cannot fix shows
+up as our alerts — but it caught a real bug in `report.ts` and a supply-chain
+regression in `@octokit/core` v7 that `pnpm audit`, Socket and Snyk all passed. Worth
+the noise; `dist/` stays in scope.

@@ -11,11 +11,7 @@ var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __commonJS = (cb, mod) => function __require() {
-  try {
-    return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
-  } catch (e) {
-    throw mod = 0, e;
-  }
+  return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
 };
 var __copyProps = (to, from, except, desc) => {
   if (from && typeof from === "object" || typeof from === "function") {
@@ -498,7 +494,7 @@ function buildHealthReport(assessments, generatedAt = /* @__PURE__ */ new Date()
   };
 }
 function escapeMarkdown(value) {
-  return value.replace(/\s*[\r\n]+\s*/g, " ").replace(/\|/g, "\\|");
+  return value.replace(/\s*[\r\n]+\s*/g, " ").replace(/\\/g, "\\\\").replace(/\|/g, "\\|");
 }
 function renderRepoSection(repo) {
   const lines = [
@@ -3149,7 +3145,7 @@ function requireDumper() {
     return quotingType === QUOTING_TYPE_DOUBLE ? STYLE_DOUBLE : STYLE_SINGLE;
   }
   function writeScalar(state, string, level, iskey, inblock) {
-    state.dump = (function() {
+    state.dump = function() {
       if (string.length === 0) {
         return state.quotingType === QUOTING_TYPE_DOUBLE ? '""' : "''";
       }
@@ -3188,7 +3184,7 @@ function requireDumper() {
         default:
           throw new YAMLException2("impossible error: invalid scalar style");
       }
-    })();
+    }();
   }
   function blockHeader(string, indentPerLevel) {
     const indentIndicator = needIndentIndicator(string) ? String(indentPerLevel) : "";
@@ -3202,12 +3198,12 @@ function requireDumper() {
   }
   function foldString(string, width) {
     const lineRe = /(\n+)([^\n]*)/g;
-    let result = (function() {
+    let result = function() {
       let nextLF = string.indexOf("\n");
       nextLF = nextLF !== -1 ? nextLF : string.length;
       lineRe.lastIndex = nextLF;
       return foldLine(string.slice(0, nextLF), width);
-    })();
+    }();
     let prevMoreIndented = string[0] === "\n" || string[0] === " ";
     let moreIndented;
     let match;
@@ -3620,7 +3616,6 @@ var ConfigError = class extends Error {
     this.path = path;
     this.name = "ConfigError";
   }
-  path;
 };
 function isPlainObject(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -3867,7 +3862,7 @@ function bindApi(hook2, state, name) {
   });
 }
 function Singular() {
-  const singularHookName = /* @__PURE__ */ Symbol("Singular");
+  const singularHookName = Symbol("Singular");
   const singularHookState = {
     registry: {}
   };
@@ -4733,7 +4728,9 @@ function withRetries(octokit, retries, backoff) {
 }
 function resolveApiBaseUrl(env = process.env, override) {
   const candidate = override?.trim() || env.GITHUB_API_URL?.trim() || GITHUB_COM_API_URL;
-  return candidate.replace(/\/+$/, "");
+  let end = candidate.length;
+  while (end > 0 && candidate[end - 1] === "/") end -= 1;
+  return candidate.slice(0, end);
 }
 function createGitHubClient(options = {}) {
   const octokit = new Octokit({
@@ -4795,8 +4792,6 @@ var RepoAccessError = class extends Error {
     this.status = status;
     this.name = "RepoAccessError";
   }
-  repo;
-  status;
 };
 function parseRepoRef(repo) {
   const match = /^([^/\s]+)\/([^/\s]+)$/.exec(repo.trim());

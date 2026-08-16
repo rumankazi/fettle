@@ -171,7 +171,8 @@ describe('runAction', () => {
     expect(svg).toContain('<svg');
     expect(svg).toContain('repo health');
     // Nothing to fetch: this has to render on a private repo and on GHES.
-    expect(svg).not.toMatch(/https?:\/\/(?!www\.w3\.org)/);
+    const urls = [...(svg ?? '').matchAll(/https?:\/\/[^"'\s>]+/g)].map((m) => m[0]);
+    expect(urls.every((url) => new URL(url).host === 'www.w3.org')).toBe(true);
   });
 
   it('honours a custom output directory', async () => {
