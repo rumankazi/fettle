@@ -1,4 +1,4 @@
-import { rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -200,7 +200,10 @@ describe('run', () => {
   });
 
   it('applies a local --config file to every repository', async () => {
-    const path = join(tmpdir(), `fettle-policy-${process.pid}.yml`);
+    // mkdtemp, not a predictable name in the shared temp directory: another user
+    // could pre-create that path as a symlink and redirect the write.
+    const dir = await mkdtemp(join(tmpdir(), 'fettle-'));
+    const path = join(dir, 'policy.yml');
     await writeFile(path, 'rules:\n  codeowners:\n    weight: 7\n');
 
     try {
@@ -214,7 +217,7 @@ describe('run', () => {
 
       expect(seen).toMatchObject({ rules: { codeowners: { weight: 7 } } });
     } finally {
-      await rm(path, { force: true });
+      await rm(dir, { recursive: true, force: true });
     }
   });
 
@@ -231,7 +234,8 @@ describe('run', () => {
   });
 
   it('exits 2 when the --config file is invalid, quoting the offending path', async () => {
-    const path = join(tmpdir(), `fettle-bad-${process.pid}.yml`);
+    const dir = await mkdtemp(join(tmpdir(), 'fettle-'));
+    const path = join(dir, 'bad.yml');
     await writeFile(path, 'rules:\n  codeowners:\n    weight: heavy\n');
 
     try {
@@ -239,7 +243,7 @@ describe('run', () => {
       expect(exitCode).toBe(EXIT_USAGE);
       expect(stderr).toContain('rules.codeowners.weight must be a number');
     } finally {
-      await rm(path, { force: true });
+      await rm(dir, { recursive: true, force: true });
     }
   });
 
