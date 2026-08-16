@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.1](https://github.com/rumankazi/fettle/compare/v3.0.0...v3.0.1) (2026-08-16)
+
+
+### Bug fixes
+
+* **core:** treat an empty config file the same on js-yaml 4 and 5 ([#39](https://github.com/rumankazi/fettle/issues/39)) ([35a2e18](https://github.com/rumankazi/fettle/commit/35a2e18ab11ef163e1aa4c6297e2d1734f5528b4))
+
 ## [3.0.0](https://github.com/rumankazi/fettle/compare/v2.0.2...v3.0.0) (2026-08-15)
 
 
