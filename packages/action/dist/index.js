@@ -3736,7 +3736,13 @@ function resolveConfig(input) {
   }
   return { config: resolved, warnings };
 }
+function hasNoDocument(yamlText) {
+  return yamlText.split("\n").every((line) => line.trim() === "" || line.trimStart().startsWith("#"));
+}
 function parseConfig(yamlText, source = CONFIG_FILENAME) {
+  if (hasNoDocument(yamlText)) {
+    return { config: structuredClone(defaultConfig), warnings: [] };
+  }
   let parsed;
   try {
     parsed = load(yamlText);

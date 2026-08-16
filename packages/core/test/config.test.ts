@@ -162,9 +162,17 @@ rules:
     });
   });
 
-  it('treats an empty or comment-only file as "use the defaults"', () => {
-    expect(parseConfig('').config).toEqual(defaultConfig);
-    expect(parseConfig('# nothing to see here\n').config).toEqual(defaultConfig);
+  it.each([
+    ['empty', ''],
+    ['whitespace only', '   \n\t\n'],
+    ['a comment only', '# nothing to see here\n'],
+    ['several comments', '# one\n\n#  two\n'],
+    ['an explicit document separator', '---\n'],
+    ['an explicit null', 'null\n'],
+  ])('treats %s as "use the defaults"', (_label, text) => {
+    // js-yaml 4 returns undefined for an empty document and js-yaml 5 throws, so
+    // this is decided before parsing rather than after.
+    expect(parseConfig(text).config).toEqual(defaultConfig);
   });
 
   it('hard-fails on malformed YAML, naming the file', () => {
