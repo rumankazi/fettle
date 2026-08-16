@@ -162,7 +162,7 @@ jobs:
           ls -l "$RUNNER_TEMP/packages"
 
       # Trusted publishing needs npm >= 11.5.1 on Node >= 22.14.0. Everything above
-      # this point deliberately ran on Node 20, the version the packages support.
+      # this point ran on Node 24, which is what `runs.using` provides.
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         if: vars.NPM_TRUSTED_PUBLISHING == 'true' || env.NPM_TOKEN != ''
         with:

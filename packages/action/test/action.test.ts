@@ -451,10 +451,23 @@ describe('action.yml', () => {
   });
 
   it('points at the committed bundle and carries Marketplace branding', () => {
-    expect(manifest.runs.using).toBe('node20');
+    expect(manifest.runs.using).toMatch(/^node\d+$/);
     expect(manifest.runs.main).toBe('packages/action/dist/index.js');
     expect(manifest.branding?.icon).toBeTruthy();
     expect(manifest.branding?.color).toBeTruthy();
+  });
+
+  it('is bundled for the runtime the runner will provide', () => {
+    // A bundle emitted for a newer runtime than `runs.using` would use syntax the
+    // runner cannot parse. Asserting the relationship rather than a literal means
+    // this keeps holding when the version moves.
+    const buildScript = readFileSync(
+      fileURLToPath(new URL('../build.mjs', import.meta.url)),
+      'utf8',
+    );
+    const target = /target:\s*'([^']+)'/.exec(buildScript)?.[1];
+
+    expect(target).toBe(manifest.runs.using);
   });
 
   it('describes every input and output, since these are the Marketplace listing', () => {

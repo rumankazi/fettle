@@ -6,7 +6,8 @@ change we expect most often: adding a rule.
 
 ## Getting set up
 
-Node 20 or newer, and pnpm (the version in `packageManager` is authoritative).
+Node 22 or newer, and pnpm (the version in `packageManager` is authoritative).
+pnpm 11 itself requires Node 22.13.
 
 ```bash
 pnpm install
