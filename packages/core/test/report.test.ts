@@ -190,6 +190,47 @@ describe('renderMarkdown', () => {
     expect(fleet).toContain('2 repositories, average score 55.0: 2×F');
   });
 
+  /** Counts real cell boundaries: a pipe that is not itself escaped. */
+  function cellCount(row: string): number {
+    let count = 0;
+    for (let i = 0; i < row.length; i += 1) {
+      if (row[i] === '\\') {
+        i += 1;
+        continue;
+      }
+      if (row[i] === '|') count += 1;
+    }
+    return count;
+  }
+
+  it.each([
+    ['a pipe', 'a|b'],
+    ['a backslash before a pipe', 'name\\|INJECTED|more'],
+    ['a lone backslash', 'back\\slash'],
+    ['two backslashes before a pipe', 'x\\\\|y'],
+    ['a newline and a heading', 'ruleset\n\n## Injected'],
+  ])('keeps the table intact when evidence contains %s', (_label, evidence) => {
+    // A repository we scan chooses its own ruleset names. Escaping pipes but not
+    // backslashes used to leave a hole: the backslash consumed our escape and
+    // freed the pipe after it, adding a cell.
+    const md = renderMarkdown(
+      buildHealthReport(
+        [
+          {
+            repo: 'acme/demo',
+            defaultBranch: 'main',
+            rules: [{ id: 'codeowners', status: 'pass', score: 100, weight: 1, evidence }],
+          },
+        ],
+        GENERATED_AT,
+      ),
+    );
+
+    const rows = md.split('\n').filter((line) => line.startsWith('|'));
+    const expected = cellCount(rows[0]);
+    for (const row of rows) expect(cellCount(row), row).toBe(expected);
+  });
+
   it('escapes pipes so evidence cannot break the table', () => {
     const escaped = renderMarkdown(
       buildHealthReport(

@@ -27,7 +27,8 @@ describe('renderBadgeSvg', () => {
     expect(svg.startsWith('<svg xmlns="http://www.w3.org/2000/svg"')).toBe(true);
     expect(svg).toContain('</svg>');
     // The whole point: it must work on a private repo, on GHES, behind a proxy.
-    expect(svg).not.toMatch(/https?:\/\/(?!www\.w3\.org)/);
+    const urls = [...(svg ?? '').matchAll(/https?:\/\/[^"'\s>]+/g)].map((m) => m[0]);
+    expect(urls.every((url) => new URL(url).host === 'www.w3.org')).toBe(true);
   });
 
   it('shows the label and the grade', () => {
