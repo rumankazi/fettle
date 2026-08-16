@@ -1,2 +1,11 @@
 packages:
   - 'packages/*'
+
+# esbuild fetches a platform binary in its install script. pnpm 10 and later refuse
+# to run a dependency's script unless it is named here.
+#
+# pnpm 9 ignores this file's extra keys and runs the script anyway, so the same
+# checkout works on both. The setting has moved twice: a `pnpm` key in package.json,
+# then `onlyBuiltDependencies` here, now `allowBuilds`.
+allowBuilds:
+  esbuild: true
