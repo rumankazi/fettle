@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.3](https://github.com/rumankazi/fettle/compare/v3.0.2...v3.0.3) (2026-08-16)
+
+
+### Bug fixes
+
+* **ci:** move the build-script allowlist to where pnpm 11 reads it ([#44](https://github.com/rumankazi/fettle/issues/44)) ([f841bf5](https://github.com/rumankazi/fettle/commit/f841bf5a81c033bee37d83d363470fb8389dc7cb))
+
 ## [3.0.2](https://github.com/rumankazi/fettle/compare/v3.0.1...v3.0.2) (2026-08-16)
 
 
