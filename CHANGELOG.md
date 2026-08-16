@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.0.2](https://github.com/rumankazi/fettle/compare/v3.0.1...v3.0.2) (2026-08-16)
+
+
+### Bug fixes
+
+* **core:** escape backslashes in evidence, and clear the CodeQL highs ([#42](https://github.com/rumankazi/fettle/issues/42)) ([9cda7aa](https://github.com/rumankazi/fettle/commit/9cda7aafb72a5d2d8197a9b65ee5363eb7638a2c))
+* **deps:** update dependency js-yaml to v5 ([#31](https://github.com/rumankazi/fettle/issues/31)) ([1d8f04b](https://github.com/rumankazi/fettle/commit/1d8f04b7daaccde31a8d9b529aa9117b863a155a))
+
 ## [3.0.1](https://github.com/rumankazi/fettle/compare/v3.0.0...v3.0.1) (2026-08-16)
 
 
