@@ -71,9 +71,17 @@ export function buildHealthReport(
  * paths — which is not necessarily a repository the reader controls. A pipe would
  * break out of a table cell and a newline would break out of the row, so neither
  * survives. The text stays readable; it just cannot restructure the document.
+ *
+ * Backslashes are escaped **first**, and that order is the whole point. Escaping
+ * only pipes left a hole: `a\|b` became `a\\|b`, where `\\` renders as one
+ * literal backslash and frees the pipe after it to end the cell. A repository
+ * could name a ruleset and restructure the table.
  */
 function escapeMarkdown(value: string): string {
-  return value.replace(/\s*[\r\n]+\s*/g, ' ').replace(/\|/g, '\\|');
+  return value
+    .replace(/\s*[\r\n]+\s*/g, ' ')
+    .replace(/\\/g, '\\\\')
+    .replace(/\|/g, '\\|');
 }
 
 function renderRepoSection(repo: RepoReport): string {

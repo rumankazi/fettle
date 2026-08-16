@@ -541,7 +541,7 @@ function buildHealthReport(assessments, generatedAt = /* @__PURE__ */ new Date()
   };
 }
 function escapeMarkdown(value) {
-  return value.replace(/\s*[\r\n]+\s*/g, " ").replace(/\|/g, "\\|");
+  return value.replace(/\s*[\r\n]+\s*/g, " ").replace(/\\/g, "\\\\").replace(/\|/g, "\\|");
 }
 function renderRepoSection(repo) {
   const lines = [
@@ -5122,7 +5122,9 @@ function withRetries(octokit, retries, backoff) {
 }
 function resolveApiBaseUrl(env = process.env, override) {
   const candidate = override?.trim() || env.GITHUB_API_URL?.trim() || GITHUB_COM_API_URL;
-  return candidate.replace(/\/+$/, "");
+  let end = candidate.length;
+  while (end > 0 && candidate[end - 1] === "/") end -= 1;
+  return candidate.slice(0, end);
 }
 function createGitHubClient(options = {}) {
   const octokit = new Octokit({

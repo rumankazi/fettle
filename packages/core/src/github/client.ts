@@ -86,7 +86,12 @@ export function resolveApiBaseUrl(
   override?: string,
 ): string {
   const candidate = override?.trim() || env.GITHUB_API_URL?.trim() || GITHUB_COM_API_URL;
-  return candidate.replace(/\/+$/, '');
+
+  // Trimmed by scanning rather than with `/\/+$/`, which backtracks polynomially
+  // on a value that is mostly slashes.
+  let end = candidate.length;
+  while (end > 0 && candidate[end - 1] === '/') end -= 1;
+  return candidate.slice(0, end);
 }
 
 export interface GitHubClientOptions {
