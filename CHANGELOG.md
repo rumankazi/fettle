@@ -1,5 +1,16 @@
 # Changelog
 
+## [4.0.0](https://github.com/rumankazi/fettle/compare/v3.0.3...v4.0.0) (2026-08-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* require Node 22, and run the Action on node24 ([#47](https://github.com/rumankazi/fettle/issues/47))
+
+### Features
+
+* require Node 22, and run the Action on node24 ([#47](https://github.com/rumankazi/fettle/issues/47)) ([3eb2f05](https://github.com/rumankazi/fettle/commit/3eb2f052cf6b2438a1a93aac7c97b6e64d212845))
+
 ## [3.0.3](https://github.com/rumankazi/fettle/compare/v3.0.2...v3.0.3) (2026-08-16)
 
 
