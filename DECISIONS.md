@@ -512,6 +512,12 @@ matrix covers the floor and the current active LTS.
 **Revisit when** GHES ships a runner that supports `node24` in a release we are happy
 to make the minimum. That is a single-line change to `action.yml`, plus the matrix.
 
+**Amended:** the matrix also runs Node 26, the newest release. Nothing pins us to it,
+but it is the version people will upgrade to next, and a break found there costs a
+rebase rather than a hotfix. It is also what this project is developed on, so leaving
+it out of CI meant the version most exercised by hand was the one never exercised
+automatically.
+
 ## D34 — Escape backslashes before pipes, and the order is the point
 
 `escapeMarkdown` escapes `\` first, then `|`, then flattens newlines.
