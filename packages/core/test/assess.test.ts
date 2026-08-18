@@ -53,13 +53,35 @@ function tree(paths: string[]) {
   };
 }
 
+/** An issues page, for the dependency dashboard probe. */
+function issuesPage(titles: string[] = []) {
+  return {
+    body: {
+      data: {
+        repository: {
+          issues: {
+            totalCount: titles.length,
+            nodes: titles.map((title, index) => ({
+              number: index + 1,
+              title,
+              url: `https://github.test/acme/demo/issues/${index + 1}`,
+              author: { __typename: 'Bot', login: 'renovate' },
+            })),
+          },
+        },
+      },
+    },
+  };
+}
+
 function routes(overrides: Handlers = {}): Handlers {
   return {
     'GET /repos/acme/demo': { body: fixture('repo') },
     'GET /repos/acme/demo/git/trees/main': tree(['README.md', 'CODEOWNERS']),
     'GET /repos/acme/demo/rules/branches/main': { body: fixture('branch-rules') },
     'GET /repos/acme/demo/rulesets': { body: fixture('rulesets') },
-    'POST /graphql': graphqlPage([]),
+    'POST /graphql FettlePullRequests': graphqlPage([]),
+    'POST /graphql FettleOpenIssues': issuesPage(),
     ...overrides,
   };
 }
@@ -197,7 +219,7 @@ describe('assessRepo: the SCORING.md §7 worked example, end to end', () => {
           status: 403,
           body: fixture('forbidden'),
         },
-        'POST /graphql': graphqlPage(openPrs),
+        'POST /graphql FettlePullRequests': graphqlPage(openPrs),
       }),
     );
 

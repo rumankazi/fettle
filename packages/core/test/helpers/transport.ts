@@ -23,13 +23,38 @@ export interface StubResponse {
 
 export type Handler = StubResponse | ((call: RecordedCall) => StubResponse);
 
-/** Handlers keyed by `METHOD /path`, e.g. `GET /repos/acme/demo`. */
+/**
+ * Handlers keyed by `METHOD /path`, e.g. `GET /repos/acme/demo`.
+ *
+ * Every GraphQL request goes to the same path, so a GraphQL key may name the
+ * operation as well — `POST /graphql FettleOpenIssues`. That key is tried first
+ * and a bare `POST /graphql` is the fallback, so a test that does not care which
+ * query it is answering need not say.
+ */
 export type Handlers = Record<string, Handler>;
+
+/**
+ * Reads the operation name out of a GraphQL request body.
+ *
+ * The queries all declare one, and matching on it is what lets two different
+ * queries to `/graphql` be stubbed independently.
+ */
+function graphqlOperation(body: unknown): string | undefined {
+  if (typeof body !== 'object' || body === null) return undefined;
+
+  const { query } = body as { query?: unknown };
+  if (typeof query !== 'string') return undefined;
+
+  return /\bquery\s+(\w+)/.exec(query)?.[1];
+}
 
 export interface Transport {
   client: GitHubClient;
   calls: RecordedCall[];
-  /** Calls made to one route key, useful for asserting pagination. */
+  /**
+   * Calls made to one route key, useful for asserting pagination. Accepts the
+   * same operation-qualified keys as {@link Handlers}.
+   */
   callsTo(key: string): RecordedCall[];
 }
 
@@ -75,7 +100,11 @@ export function createTransport(handlers: Handlers, options: { token?: string } 
     const call: RecordedCall = { method, path, body };
     calls.push(call);
 
-    const handler = handlers[`${method} ${url.pathname}`];
+    const operation = graphqlOperation(body);
+    const handler =
+      (operation === undefined ? undefined : handlers[`${method} ${url.pathname} ${operation}`]) ??
+      handlers[`${method} ${url.pathname}`];
+
     if (handler === undefined) {
       return toResponse({ status: 404, body: { message: 'Not Found' } });
     }
@@ -96,8 +125,13 @@ export function createTransport(handlers: Handlers, options: { token?: string } 
     client,
     calls,
     callsTo: (key) => {
-      const [method, path] = key.split(' ');
-      return calls.filter((c) => c.method === method && c.path.split('?')[0] === path);
+      const [method, path, operation] = key.split(' ');
+      return calls.filter(
+        (c) =>
+          c.method === method &&
+          c.path.split('?')[0] === path &&
+          (operation === undefined || graphqlOperation(c.body) === operation),
+      );
     },
   };
 }

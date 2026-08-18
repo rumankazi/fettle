@@ -15,6 +15,7 @@
 import { available, unavailable } from '../probe.js';
 import type {
   BranchProtection,
+  DependencyDashboardSearch,
   Probe,
   PullRequestData,
   PullRequestSummary,
@@ -23,8 +24,11 @@ import type {
 } from '../types.js';
 import { GITHUB_COM_API_URL, type GitHubClient } from './client.js';
 import {
+  OPEN_ISSUE_PAGE_SIZE,
+  OPEN_ISSUES_QUERY,
   PULL_REQUEST_PAGE_SIZE,
   PULL_REQUESTS_QUERY,
+  type OpenIssuesPage,
   type PullRequestNode,
   type PullRequestsPage,
 } from './queries.js';
@@ -495,6 +499,83 @@ async function fetchPullRequests(
 }
 
 /* -------------------------------------------------------------------------- */
+/* Dependency dashboard                                                       */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Matched against issue titles, case-insensitively.
+ *
+ * Renovate's `dependencyDashboardTitle` is configurable and organisations do
+ * customise it, usually by prefixing or suffixing rather than replacing — so this
+ * looks for the phrase anywhere in the title rather than demanding the exact
+ * default.
+ */
+const DASHBOARD_TITLE = 'dependency dashboard';
+
+/**
+ * Looks for Renovate's dependency dashboard issue.
+ *
+ * A repository onboarded by a central Renovate operator has no config file of its
+ * own, so the dashboard is the only thing it gives off. A `dashboard` of `null`
+ * means the issues were read and no dashboard was among them; that is a real
+ * answer, and distinct from a probe that could not run.
+ */
+async function fetchDependencyDashboard(
+  client: GitHubClient,
+  repo: RepoRef,
+): Promise<Probe<DependencyDashboardSearch>> {
+  try {
+    const data: OpenIssuesPage = await client.graphql(OPEN_ISSUES_QUERY, {
+      owner: repo.owner,
+      name: repo.name,
+      pageSize: OPEN_ISSUE_PAGE_SIZE,
+    });
+
+    const connection = data.repository?.issues;
+    if (connection === undefined) {
+      return unavailable(
+        `The GraphQL API returned no repository for ${formatRepoRef(repo)}, so open issues ` +
+          `could not be read.`,
+      );
+    }
+
+    const nodes = (connection.nodes ?? []).filter((node) => node !== null);
+    const truncated = connection.totalCount > nodes.length;
+
+    const found = nodes.find((node) => node.title.toLowerCase().includes(DASHBOARD_TITLE));
+    if (found === undefined) return available({ dashboard: null, truncated });
+
+    return available({
+      dashboard: {
+        number: found.number,
+        title: found.title,
+        url: found.url,
+        author: found.author?.login ?? null,
+        authorIsBot: found.author?.__typename === 'Bot',
+      },
+      truncated,
+    });
+  } catch (error) {
+    const status = httpStatus(error);
+
+    const rateLimited = rateLimitHint(error);
+    if (rateLimited !== undefined) return unavailable(rateLimited);
+
+    if (status === 401 || status === 403) {
+      return unavailable(
+        `Not authorised to read issues for ${formatRepoRef(repo)}. Grant the token issues:read ` +
+          `so a centrally configured Renovate can be detected from its dependency dashboard.`,
+      );
+    }
+
+    return unavailable(
+      `Could not read open issues for ${formatRepoRef(repo)}: ${message(error)}. ` +
+        `A centrally configured Renovate cannot be detected without them.`,
+    );
+  }
+}
+
+/* -------------------------------------------------------------------------- */
 /* Assembly                                                                   */
 /* -------------------------------------------------------------------------- */
 
@@ -515,10 +596,11 @@ export async function fetchRepoContext(
 ): Promise<RepoContext> {
   const { defaultBranch } = await fetchMetadata(client, repo);
 
-  const [existingPaths, branchProtection, pullRequests] = await Promise.all([
+  const [existingPaths, branchProtection, pullRequests, dependencyDashboard] = await Promise.all([
     fetchExistingPaths(client, repo, defaultBranch),
     fetchBranchProtection(client, repo, defaultBranch),
     fetchPullRequests(client, repo),
+    fetchDependencyDashboard(client, repo),
   ]);
 
   return {
@@ -529,6 +611,7 @@ export async function fetchRepoContext(
     existingPaths,
     branchProtection,
     pullRequests,
+    dependencyDashboard,
   };
 }
 

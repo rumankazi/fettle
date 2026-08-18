@@ -275,25 +275,49 @@ var DEPENDENCY_UPDATE_LOCATIONS = [
   ".github/renovate.json",
   ".github/renovate.json5"
 ];
+function describeDashboard(dashboard) {
+  const author = dashboard.author === null ? "a since-deleted account" : `${dashboard.author}${dashboard.authorIsBot ? "" : " (not an app account)"}`;
+  return `Renovate's dependency dashboard is open at issue #${dashboard.number} ('${dashboard.title}', opened by ${author}). No config file is committed here, which is expected when a central Renovate operator runs this repository from a shared organisation-level config.`;
+}
+function describeNoDashboard(search) {
+  return search.truncated ? ` No Renovate dependency dashboard was found either, though only the most recently updated open issues were examined.` : ` No Renovate dependency dashboard is open either.`;
+}
 var dependencyUpdatesRule = {
   id: "dependency_updates",
   kind: "boolean",
   evaluate(ctx, settings) {
-    const probe = ctx.existingPaths;
-    if (!probe.available) {
-      return notApplicable("dependency_updates", settings, probe);
+    const paths = ctx.existingPaths;
+    const search = ctx.dependencyDashboard;
+    if (paths.available) {
+      const found = DEPENDENCY_UPDATE_LOCATIONS.find((location) => paths.value.includes(location));
+      if (found !== void 0) {
+        return pass("dependency_updates", settings, `Dependency update config found at ${found}.`, {
+          path: found,
+          source: "config"
+        });
+      }
     }
-    const found = DEPENDENCY_UPDATE_LOCATIONS.find((location) => probe.value.includes(location));
-    if (found !== void 0) {
-      return pass("dependency_updates", settings, `Dependency update config found at ${found}.`, {
-        path: found
+    if (search.available && search.value.dashboard !== null) {
+      const { dashboard } = search.value;
+      return pass("dependency_updates", settings, describeDashboard(dashboard), {
+        source: "dashboard",
+        issueNumber: dashboard.number,
+        issueUrl: dashboard.url
+      });
+    }
+    if (!paths.available) {
+      return notApplicable("dependency_updates", settings, paths);
+    }
+    if (!search.available) {
+      return notApplicable("dependency_updates", settings, search, {
+        checkedPaths: [...DEPENDENCY_UPDATE_LOCATIONS]
       });
     }
     return fail(
       "dependency_updates",
       settings,
-      `No Dependabot or Renovate config found at any of ${DEPENDENCY_UPDATE_LOCATIONS.join(", ")}. Note that a Renovate app configured centrally, outside this repository, cannot be detected from here.`,
-      { checkedPaths: [...DEPENDENCY_UPDATE_LOCATIONS] }
+      `No Dependabot or Renovate config found at any of ${DEPENDENCY_UPDATE_LOCATIONS.join(", ")}.` + describeNoDashboard(search.value),
+      { checkedPaths: [...DEPENDENCY_UPDATE_LOCATIONS], source: null }
     );
   }
 };
@@ -4116,6 +4140,25 @@ var PULL_REQUESTS_QUERY = `
     }
   }
 `;
+var OPEN_ISSUE_PAGE_SIZE = 100;
+var OPEN_ISSUES_QUERY = `
+  query FettleOpenIssues($owner: String!, $name: String!, $pageSize: Int!) {
+    repository(owner: $owner, name: $name) {
+      issues(states: OPEN, first: $pageSize, orderBy: { field: UPDATED_AT, direction: DESC }) {
+        totalCount
+        nodes {
+          number
+          title
+          url
+          author {
+            __typename
+            login
+          }
+        }
+      }
+    }
+  }
+`;
 
 // ../core/src/github/context.ts
 var MAX_PULL_REQUEST_PAGES = 5;
@@ -4380,12 +4423,55 @@ async function fetchPullRequests(client, repo) {
     return describeGraphqlFailure(repo, error);
   }
 }
+var DASHBOARD_TITLE = "dependency dashboard";
+async function fetchDependencyDashboard(client, repo) {
+  try {
+    const data = await client.graphql(OPEN_ISSUES_QUERY, {
+      owner: repo.owner,
+      name: repo.name,
+      pageSize: OPEN_ISSUE_PAGE_SIZE
+    });
+    const connection = data.repository?.issues;
+    if (connection === void 0) {
+      return unavailable(
+        `The GraphQL API returned no repository for ${formatRepoRef(repo)}, so open issues could not be read.`
+      );
+    }
+    const nodes = (connection.nodes ?? []).filter((node) => node !== null);
+    const truncated = connection.totalCount > nodes.length;
+    const found = nodes.find((node) => node.title.toLowerCase().includes(DASHBOARD_TITLE));
+    if (found === void 0) return available({ dashboard: null, truncated });
+    return available({
+      dashboard: {
+        number: found.number,
+        title: found.title,
+        url: found.url,
+        author: found.author?.login ?? null,
+        authorIsBot: found.author?.__typename === "Bot"
+      },
+      truncated
+    });
+  } catch (error) {
+    const status = httpStatus(error);
+    const rateLimited = rateLimitHint(error);
+    if (rateLimited !== void 0) return unavailable(rateLimited);
+    if (status === 401 || status === 403) {
+      return unavailable(
+        `Not authorised to read issues for ${formatRepoRef(repo)}. Grant the token issues:read so a centrally configured Renovate can be detected from its dependency dashboard.`
+      );
+    }
+    return unavailable(
+      `Could not read open issues for ${formatRepoRef(repo)}: ${message(error)}. A centrally configured Renovate cannot be detected without them.`
+    );
+  }
+}
 async function fetchRepoContext(client, repo, options = {}) {
   const { defaultBranch } = await fetchMetadata(client, repo);
-  const [existingPaths, branchProtection, pullRequests] = await Promise.all([
+  const [existingPaths, branchProtection, pullRequests, dependencyDashboard] = await Promise.all([
     fetchExistingPaths(client, repo, defaultBranch),
     fetchBranchProtection(client, repo, defaultBranch),
-    fetchPullRequests(client, repo)
+    fetchPullRequests(client, repo),
+    fetchDependencyDashboard(client, repo)
   ]);
   return {
     owner: repo.owner,
@@ -4394,7 +4480,8 @@ async function fetchRepoContext(client, repo, options = {}) {
     now: options.now ?? /* @__PURE__ */ new Date(),
     existingPaths,
     branchProtection,
-    pullRequests
+    pullRequests,
+    dependencyDashboard
   };
 }
 function createRepoFileReader(client, repo, ref) {

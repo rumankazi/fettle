@@ -27,9 +27,14 @@ excluded — the report says exactly how each one was reached.
 | -------------------- | --------- | ----------------------------------------------------------------------------- | -------------- |
 | `branch_protection`  | boolean   | Does the default branch have a protection rule or ruleset?                    | 3              |
 | `codeowners`         | boolean   | Does a CODEOWNERS file exist in a standard location?                          | 1              |
-| `dependency_updates` | boolean   | Is Dependabot or Renovate configured?                                         | 2              |
+| `dependency_updates` | boolean   | Is Dependabot or Renovate configured, by file or by Renovate's dashboard?     | 2              |
 | `open_pr_count`      | threshold | Are open PRs piling up?                                                       | 1              |
 | `stale_prs`          | threshold | How many PRs are open past `open_days` with no commit inside `inactive_days`? | 2              |
+
+`dependency_updates` looks for a config file first, and falls back to Renovate's
+dependency dashboard issue. That fallback matters in organisations running a single
+Renovate operator from a shared config: member repositories hold no `renovate.json`
+of their own, and the open dashboard is the only thing that shows they are covered.
 
 Scoring is a weighted average, and a check we could not run scores nothing at all —
 it leaves both sides of the average, so a narrow token never costs you points. The
@@ -66,7 +71,7 @@ jobs:
   health:
     runs-on: ubuntu-latest
     steps:
-      - uses: rumankazi/fettle@v2
+      - uses: rumankazi/fettle@v4
         id: health
         with:
           fail-below: C # optional gate
@@ -298,10 +303,11 @@ the higher grade.
 
 ## Token permissions
 
-| Check                               | Needs                                                    |
-| ----------------------------------- | -------------------------------------------------------- |
-| CODEOWNERS, dependency configs, PRs | the default `GITHUB_TOKEN`                               |
-| `branch_protection`                 | repository **administration: read** (a PAT or App token) |
+| Check                                               | Needs                                                    |
+| --------------------------------------------------- | -------------------------------------------------------- |
+| CODEOWNERS, dependency configs, PRs                 | the default `GITHUB_TOKEN`                               |
+| `dependency_updates`, centrally-configured Renovate | **issues: read**, to see the dependency dashboard        |
+| `branch_protection`                                 | repository **administration: read** (a PAT or App token) |
 
 With a default token, `branch_protection` reports `na` and the report tells you what
 granting `administration:read` would unlock. It is never a `fail` — a permission
@@ -314,7 +320,7 @@ authentication, so the two pull request rules will report `na`.
 
 A scan costs about eight requests per repository: one for metadata, up to three to
 walk the file tree, one or two for branch protection, one for `.fettle.yml`, and
-one GraphQL query for pull requests.
+two GraphQL queries: one for pull requests, one for open issues.
 
 One cap is worth knowing about: pull request pagination stops after 500 open PRs and
 reports the counts as a lower bound, saying so in the evidence.

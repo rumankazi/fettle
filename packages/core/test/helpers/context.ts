@@ -37,6 +37,7 @@ export function repoContext(overrides: Partial<RepoContext> = {}): RepoContext {
       description: "ruleset 'main-protection'",
     }),
     pullRequests: available({ items: [], truncated: false }),
+    dependencyDashboard: available({ dashboard: null, truncated: false }),
     ...overrides,
   };
 }

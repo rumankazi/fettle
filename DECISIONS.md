@@ -624,3 +624,67 @@ case specifically, because it is the kind of thing that reads as correct.
 every request with status and timing. It goes to stderr so `--format json` stays
 pipeable with debug on, and it logs the request URL rather than its headers — the
 headers are where the token is. A test asserts the token does not appear.
+
+## D38 — `dependency_updates` accepts Renovate's dependency dashboard
+
+The rule's own comment used to admit the hole: "a Renovate app driving this repo from
+a central config reads as a `fail`". That is not an edge case. Organisations commonly
+run one Renovate operator against a shared preset, and their repositories hold no
+`renovate.json` at all — so a scan told them their dependency updates were unmanaged
+when Renovate had been raising PRs against them for a year.
+
+The signal such a repository does give off is Renovate's dependency dashboard issue.
+So the rule now takes either: a config file, or an open issue whose title contains
+"dependency dashboard".
+
+**The file wins.** It is the direct evidence, it is already fetched, and it decides
+the result even when the issues could not be read at all. Only when there is no file
+do the issues matter.
+
+**Not found is not the same as could not look.** With no file and no readable issue
+list, the rule is `na`, not `fail` — we cannot distinguish a repository with no
+dependency updates from one configured centrally, and a check we could not run is
+never evidence of poor health (SCORING.md §3). The `na` evidence names
+`issues:read`.
+
+**Title match, not author match.** `dependencyDashboardTitle` is configurable and
+organisations do customise it, so the match is a case-insensitive substring rather
+than the exact default. Author is _reported_, not required: Renovate self-hosted runs
+under an App on one instance and a machine user on the next, so demanding a `Bot`
+author would reintroduce the same false negative one layer down. A human-authored
+issue called "Dependency Dashboard" therefore passes — the evidence says who opened
+it and marks a non-app author, which is the invariant that every result explains
+itself doing the work instead.
+
+**One page of issues, by GraphQL.** REST's issue list returns pull requests as
+issues, so a repository with 100 busy PRs could bury the dashboard; the GraphQL
+connection returns issues only. It is not paginated: Renovate rewrites the dashboard
+body on every run, so on a working setup it sits at the top of `UPDATED_AT DESC`, and
+walking further would cost a request per page on every repository to change the
+answer on almost none. When more issues exist than were examined, the fail evidence
+says so rather than claiming certainty the request did not buy.
+
+**Costs one request per repository**, taking a typical scan from 7 to 8. The budget
+in ARCHITECTURE.md is about ten, and the request-budget test asserts the new number
+rather than the bound alone.
+
+**This changes grades.** Repositories covered by a central Renovate go from `fail` to
+`pass` on a weight-2 rule. That is the point, and it is why this is a `feat`. No
+report field was renamed or removed, so `schemaVersion` is unchanged, but
+`details.path` is now absent on a pass detected from the dashboard — a new
+`details.source` of `config` or `dashboard` says which signal fired, and SCORING.md
+§6 documents both.
+
+**Verified in the wild, and it changed the design.** Searching for repositories with
+an open dashboard and no config file found real ones, and the dashboards were opened
+by `alex-ocmbot` and `glencoe-renovate` — neither is `renovate[bot]`. Matching on the
+bot login, which was the first instinct, would have missed both. Checking
+`vitest-dev/vitest` also confirmed the ordering assumption: its dashboard is issue
+#957 and still came back inside one page of `UPDATED_AT DESC`.
+
+**Found a latent test-harness bug.** Every GraphQL request goes to `POST /graphql`,
+and the test transport keyed handlers by route alone — so the second query silently
+consumed the first query's stubs, and a pagination test that asserted PRs `[1, 2, 3]`
+started returning `[1, 3]` while still looking like it passed for the right reason.
+Handlers may now name the operation (`POST /graphql FettleOpenIssues`), with the bare
+route as a fallback.

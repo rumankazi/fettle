@@ -19,7 +19,8 @@ const TREE_DOCS = 'GET /repos/acme/demo/git/trees/bb22cc33dd44ee55ff6677889900aa
 const BRANCH_RULES = 'GET /repos/acme/demo/rules/branches/main';
 const RULESETS = 'GET /repos/acme/demo/rulesets';
 const LEGACY_PROTECTION = 'GET /repos/acme/demo/branches/main/protection';
-const GRAPHQL = 'POST /graphql';
+const GRAPHQL = 'POST /graphql FettlePullRequests';
+const ISSUES = 'POST /graphql FettleOpenIssues';
 
 const FORBIDDEN = { status: 403, body: fixture('forbidden') };
 const NOT_FOUND = { status: 404, body: { message: 'Not Found' } };
@@ -34,6 +35,7 @@ function happyRoutes(): Handlers {
     [BRANCH_RULES]: { body: fixture('branch-rules') },
     [RULESETS]: { body: fixture('rulesets') },
     [GRAPHQL]: { body: fixture('pull-requests') },
+    [ISSUES]: { body: fixture('open-issues') },
   };
 }
 
@@ -425,14 +427,130 @@ describe('fetchRepoContext: rate limiting', () => {
   });
 });
 
+describe('fetchRepoContext: the dependency dashboard', () => {
+  /** Builds an issues page, so each test states only what it is about. */
+  function issuesPage(titles: string[], totalCount = titles.length) {
+    return {
+      body: {
+        data: {
+          repository: {
+            issues: {
+              totalCount,
+              nodes: titles.map((title, index) => ({
+                number: index + 1,
+                title,
+                url: `https://github.test/acme/demo/issues/${index + 1}`,
+                author: { __typename: 'Bot', login: 'renovate' },
+              })),
+            },
+          },
+        },
+      },
+    };
+  }
+
+  it('finds the dashboard among the open issues', async () => {
+    const { context } = fetchWith();
+    const { dashboard } = expectAvailable((await context).dependencyDashboard);
+
+    expect(dashboard).toEqual({
+      number: 118,
+      title: 'Dependency Dashboard',
+      url: 'https://github.test/acme/demo/issues/118',
+      author: 'renovate',
+      authorIsBot: true,
+    });
+  });
+
+  it('matches the title case-insensitively and as a substring', async () => {
+    const { context } = fetchWith({
+      [ISSUES]: issuesPage(['ACME: dependency dashboard (do not close)']),
+    });
+    const { dashboard } = expectAvailable((await context).dependencyDashboard);
+
+    expect(dashboard?.number).toBe(1);
+  });
+
+  it('resolves to no dashboard, which is an answer rather than a failure', async () => {
+    const { context } = fetchWith({ [ISSUES]: issuesPage(['Flaky test', 'Docs are wrong']) });
+    const search = expectAvailable((await context).dependencyDashboard);
+
+    expect(search.dashboard).toBeNull();
+    expect(search.truncated).toBe(false);
+  });
+
+  it('flags a repository with more open issues than it examined', async () => {
+    const { context } = fetchWith({ [ISSUES]: issuesPage(['Flaky test'], 400) });
+    const search = expectAvailable((await context).dependencyDashboard);
+
+    expect(search.dashboard).toBeNull();
+    expect(search.truncated).toBe(true);
+  });
+
+  it('survives an issue whose author has been deleted', async () => {
+    const { context } = fetchWith({
+      [ISSUES]: {
+        body: {
+          data: {
+            repository: {
+              issues: {
+                totalCount: 1,
+                nodes: [
+                  {
+                    number: 7,
+                    title: 'Dependency Dashboard',
+                    url: 'https://github.test/acme/demo/issues/7',
+                    author: null,
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    });
+    const { dashboard } = expectAvailable((await context).dependencyDashboard);
+
+    expect(dashboard).toMatchObject({ number: 7, author: null, authorIsBot: false });
+  });
+
+  it('asks for issues only, so busy pull requests cannot bury the dashboard', async () => {
+    const { transport, context } = fetchWith();
+    await context;
+
+    const [call] = transport.callsTo(ISSUES);
+    const { query } = call.body as { query: string };
+    expect(query).toContain('issues(states: OPEN');
+    expect(query).toContain('UPDATED_AT');
+    expect(query).not.toContain('pullRequests');
+  });
+
+  it('names the permission when the issues cannot be read', async () => {
+    const { context } = fetchWith({ [ISSUES]: FORBIDDEN });
+    const reason = expectUnavailable((await context).dependencyDashboard);
+
+    expect(reason).toContain('issues:read');
+  });
+
+  it('degrades without taking the rest of the scan down with it', async () => {
+    const { context } = fetchWith({ [ISSUES]: { status: 500, body: { message: 'boom' } } });
+    const result = await context;
+
+    expect(result.dependencyDashboard.available).toBe(false);
+    expect(result.pullRequests.available).toBe(true);
+    expect(result.existingPaths.available).toBe(true);
+  });
+});
+
 describe('fetchRepoContext: request budget', () => {
   it('stays within about ten requests for a typical repository', async () => {
     const { transport, context } = fetchWith();
     await context;
 
-    // 1 metadata + 3 trees + 1 branch rules + 1 rulesets + 1 GraphQL.
+    // 1 metadata + 3 trees + 1 branch rules + 1 rulesets + 2 GraphQL (pull
+    // requests, and open issues for the dependency dashboard).
     expect(transport.calls.length).toBeLessThanOrEqual(10);
-    expect(transport.calls).toHaveLength(7);
+    expect(transport.calls).toHaveLength(8);
   });
 });
 

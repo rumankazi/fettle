@@ -1,0 +1,29 @@
+{
+  "data": {
+    "repository": {
+      "issues": {
+        "totalCount": 3,
+        "nodes": [
+          {
+            "number": 118,
+            "title": "Dependency Dashboard",
+            "url": "https://github.test/acme/demo/issues/118",
+            "author": { "__typename": "Bot", "login": "renovate" }
+          },
+          {
+            "number": 205,
+            "title": "Flaky test on Windows",
+            "url": "https://github.test/acme/demo/issues/205",
+            "author": { "__typename": "User", "login": "some-human" }
+          },
+          {
+            "number": 91,
+            "title": "Document the release process",
+            "url": "https://github.test/acme/demo/issues/91",
+            "author": { "__typename": "User", "login": "some-human" }
+          }
+        ]
+      }
+    }
+  }
+}

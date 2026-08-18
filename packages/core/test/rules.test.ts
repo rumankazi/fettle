@@ -89,13 +89,26 @@ describe('dependency_updates', () => {
     },
   );
 
-  it('fails with the centrally-configured-Renovate caveat in the evidence', () => {
+  it('fails when neither a config file nor a dashboard is there', () => {
     const result = dependencyUpdatesRule.evaluate(
       repoContext({ existingPaths: available([]) }),
       settings.dependency_updates,
     );
     expect(result.status).toBe('fail');
-    expect(result.evidence).toContain('centrally');
+    expect(result.evidence).toContain('No Dependabot or Renovate config');
+    expect(result.evidence).toContain('No Renovate dependency dashboard is open either');
+  });
+
+  it('says so when only part of the issue list was examined', () => {
+    const result = dependencyUpdatesRule.evaluate(
+      repoContext({
+        existingPaths: available([]),
+        dependencyDashboard: available({ dashboard: null, truncated: true }),
+      }),
+      settings.dependency_updates,
+    );
+    expect(result.status).toBe('fail');
+    expect(result.evidence).toContain('only the most recently updated open issues');
   });
 
   it('is na when the repository contents could not be read', () => {
@@ -104,6 +117,109 @@ describe('dependency_updates', () => {
       settings.dependency_updates,
     );
     expect(result.status).toBe('na');
+  });
+
+  describe("Renovate's dependency dashboard", () => {
+    const dashboard = {
+      number: 42,
+      title: 'Dependency Dashboard',
+      url: 'https://github.test/acme/demo/issues/42',
+      author: 'renovate',
+      authorIsBot: true,
+    };
+
+    /**
+     * The case this rule exists to cover: an organisation runs one Renovate
+     * operator from a shared config, so member repositories hold no config file of
+     * their own and used to grade as `fail`.
+     */
+    it('passes on the dashboard alone, with no config file present', () => {
+      const result = dependencyUpdatesRule.evaluate(
+        repoContext({
+          existingPaths: available([]),
+          dependencyDashboard: available({ dashboard, truncated: false }),
+        }),
+        settings.dependency_updates,
+      );
+
+      expect(result.status).toBe('pass');
+      expect(result.score).toBe(100);
+      expect(result.evidence).toContain('#42');
+      expect(result.evidence).toContain('renovate');
+      expect(result.details).toMatchObject({ source: 'dashboard', issueNumber: 42 });
+    });
+
+    it('matches a customised title, since the default is configurable', () => {
+      const result = dependencyUpdatesRule.evaluate(
+        repoContext({
+          existingPaths: available([]),
+          dependencyDashboard: available({
+            dashboard: { ...dashboard, title: 'ACME Platform: Dependency Dashboard' },
+            truncated: false,
+          }),
+        }),
+        settings.dependency_updates,
+      );
+      expect(result.status).toBe('pass');
+    });
+
+    it('flags a dashboard opened by something other than an app, rather than hiding it', () => {
+      const result = dependencyUpdatesRule.evaluate(
+        repoContext({
+          existingPaths: available([]),
+          dependencyDashboard: available({
+            dashboard: { ...dashboard, author: 'some-human', authorIsBot: false },
+            truncated: false,
+          }),
+        }),
+        settings.dependency_updates,
+      );
+
+      // Still a pass — the title is the signal, and Renovate can run under a
+      // machine user. The evidence names the author so a reader can judge it.
+      expect(result.status).toBe('pass');
+      expect(result.evidence).toContain('some-human');
+      expect(result.evidence).toContain('not an app account');
+    });
+
+    it('prefers a config file, which is the stronger signal', () => {
+      const result = dependencyUpdatesRule.evaluate(
+        repoContext({
+          existingPaths: available(['renovate.json']),
+          dependencyDashboard: available({ dashboard, truncated: false }),
+        }),
+        settings.dependency_updates,
+      );
+      expect(result.details).toMatchObject({ source: 'config', path: 'renovate.json' });
+    });
+
+    it('still passes on a config file when the issues could not be read at all', () => {
+      const result = dependencyUpdatesRule.evaluate(
+        repoContext({
+          existingPaths: available(['renovate.json']),
+          dependencyDashboard: unavailable('issues:read not granted'),
+        }),
+        settings.dependency_updates,
+      );
+      expect(result.status).toBe('pass');
+    });
+
+    it('is na, not fail, when no config file exists and the issues could not be read', () => {
+      const result = dependencyUpdatesRule.evaluate(
+        repoContext({
+          existingPaths: available([]),
+          dependencyDashboard: unavailable('issues:read not granted'),
+        }),
+        settings.dependency_updates,
+      );
+
+      // Without the issues we cannot tell a repository with no dependency updates
+      // from one configured centrally, and a check we could not run is never
+      // evidence of poor health (SCORING.md §3).
+      expect(result.status).toBe('na');
+      expect(result.score).toBeNull();
+      expect(result.evidence).toContain('issues:read');
+    });
   });
 });
 

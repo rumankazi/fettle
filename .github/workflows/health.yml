@@ -57,6 +57,7 @@ jobs:
           # same App needs write access when it is cutting a release.
           permission-administration: read
           permission-contents: read
+          permission-issues: read
           permission-pull-requests: read
 
       - name: Note when the App token was unavailable
