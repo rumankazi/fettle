@@ -11,7 +11,7 @@ packages/
       config.ts         # load + merge: repo .fettle.yml → defaults; validation
       github/
         client.ts       # Octokit factory (baseUrl resolution, auth, retries)
-        queries.ts      # the one GraphQL query for PR flow data
+        queries.ts      # GraphQL: PR flow data, and open issues
       rules/
         rule.ts         # Rule interface + registry
         branch-protection.ts
@@ -70,7 +70,7 @@ user's config are a validation warning, not an error (forward compatibility).
 ```
 input repos[] ──► for each repo:
   1. resolve config   (.fettle.yml from target repo default branch, else defaults)
-  2. fetch context    (repo metadata + one GraphQL PR query)
+  2. fetch context    (repo metadata + GraphQL for PRs and open issues)
   3. run rules        (parallel; each returns RuleResult)
   4. score            (SCORING.md math)
 ──► HealthReport { schemaVersion, generatedAt, repos: [...], fleet summary }

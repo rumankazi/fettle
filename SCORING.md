@@ -26,6 +26,11 @@ Round rule scores to 1 decimal. No other curve shapes exist in v1.
 
 ## 2. Rule definitions (raw values)
 
+- `dependency_updates`: passes on **either** a config file at one of the documented
+  Dependabot/Renovate locations, **or** an open issue whose title contains
+  "dependency dashboard" (case-insensitive) among the 100 most recently updated open
+  issues. The file is checked first. If neither is found but either signal could not
+  be read, the rule is `na`, not `fail`.
 - `open_pr_count`: x = number of open, non-draft PRs at scan time.
 - `stale_prs`: x = number of PRs that are open, non-draft, `createdAt` older than
   `open_days` (default 21) AND whose last commit `committedDate` is older than
@@ -136,7 +141,8 @@ here is what turns an implementation detail into an accidental promise.
 | `open_pr_count`, `stale_prs`       | `good_at`, `bad_at` | the thresholds it was scored against       |
 | `open_pr_count`, `stale_prs`       | `truncated`         | `true` when `value` is a lower bound       |
 | `branch_protection`                | `source`            | `ruleset` or `legacy`                      |
-| `codeowners`, `dependency_updates` | `path`              | the file found, when the rule passed       |
+| `codeowners`, `dependency_updates` | `path`              | the file found, when a file is what passed |
+| `dependency_updates`               | `source`            | `config`, `dashboard`, or `null` on a fail |
 
 Any **other** key in `details` — `draftsExcluded`, `checkedPaths`, `stalePrNumbers`,
 `enabled` — is diagnostic. It exists to explain a result to a person reading the

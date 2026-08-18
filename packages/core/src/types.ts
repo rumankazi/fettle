@@ -127,6 +127,34 @@ export interface PullRequestSummary {
  * so every rule is a pure function of (context, settings) and needs no mocking to
  * test. See DECISIONS.md.
  */
+/**
+ * Renovate's dependency dashboard issue, when one is open.
+ *
+ * Its presence is the only signal a repository gives off when Renovate is driven
+ * by a central, org-level configuration and so has no config file of its own.
+ */
+export interface DependencyDashboard {
+  number: number;
+  title: string;
+  url: string;
+  /** The account that opened it; `null` if that account has since been deleted. */
+  author: string | null;
+  /** Whether the author is an App rather than a person. */
+  authorIsBot: boolean;
+}
+
+/**
+ * The outcome of looking for a dependency dashboard.
+ *
+ * `truncated` sits here rather than on the dashboard because it matters most when
+ * nothing was found: it is the difference between "this repository has no
+ * dashboard" and "no dashboard was among the issues we looked at".
+ */
+export interface DependencyDashboardSearch {
+  dashboard: DependencyDashboard | null;
+  truncated: boolean;
+}
+
 export interface RepoContext {
   owner: string;
   repo: string;
@@ -137,6 +165,7 @@ export interface RepoContext {
   existingPaths: Probe<readonly string[]>;
   branchProtection: Probe<BranchProtection>;
   pullRequests: Probe<PullRequestData>;
+  dependencyDashboard: Probe<DependencyDashboardSearch>;
 }
 
 /**

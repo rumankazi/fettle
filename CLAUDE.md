@@ -48,7 +48,7 @@ remains is documented behaviour, and `SPEC.md` holds the post-v1 backlog.
 - pnpm workspaces monorepo: `packages/core`, `packages/cli`, `packages/action`.
 - Bundler: esbuild. Test runner: vitest. Lint: eslint + prettier, default configs,
   do not bikeshed style.
-- REST via Octokit for config checks; one GraphQL query for PR flow data
+- REST via Octokit for config checks; GraphQL for PR flow data and open issues
   (see `ARCHITECTURE.md` §API strategy).
 
 ## Commands (set these up in Phase 0 and keep them working)
