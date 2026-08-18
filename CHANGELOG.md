@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.2.0](https://github.com/rumankazi/fettle/compare/v4.1.0...v4.2.0) (2026-08-18)
+
+
+### Features
+
+* detect a centrally-configured Renovate from its dependency dashboard ([#52](https://github.com/rumankazi/fettle/issues/52)) ([a8d13bc](https://github.com/rumankazi/fettle/commit/a8d13bcb77e779d03f6f03727ea3650ead5f4cb7))
+
 ## [4.1.0](https://github.com/rumankazi/fettle/compare/v4.0.0...v4.1.0) (2026-08-18)
 
 
