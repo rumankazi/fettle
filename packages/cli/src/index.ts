@@ -7,4 +7,6 @@ process.exitCode = await run({
   env: process.env,
   stdout: (chunk) => process.stdout.write(chunk),
   stderr: (chunk) => process.stderr.write(chunk),
+  isTty: process.stdout.isTTY === true,
+  columns: process.stdout.columns,
 });

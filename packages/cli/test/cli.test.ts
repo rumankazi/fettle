@@ -69,10 +69,26 @@ describe('parseCliOptions', () => {
     ]);
   });
 
-  it('defaults format to json, and leaves each repository to supply its own config', () => {
+  it('leaves format unset when not asked for, since the default depends on the terminal', () => {
     const options = parseCliOptions(['--repos', 'org/a']);
-    expect(options.format).toBe('json');
+    expect(options.format).toBeUndefined();
     expect(options.configPath).toBeUndefined();
+  });
+
+  it('reads the host from --gh-host, then $GH_HOST', () => {
+    expect(parseCliOptions(['--repos', 'org/a', '--gh-host', 'ghe.example.com']).host).toBe(
+      'ghe.example.com',
+    );
+    expect(parseCliOptions(['--repos', 'org/a'], { GH_HOST: 'ghe.example.com' }).host).toBe(
+      'ghe.example.com',
+    );
+  });
+
+  it('enables debug from the flag or $FETTLE_DEBUG', () => {
+    expect(parseCliOptions(['--repos', 'org/a']).debug).toBe(false);
+    expect(parseCliOptions(['--repos', 'org/a', '--debug']).debug).toBe(true);
+    expect(parseCliOptions(['--repos', 'org/a'], { FETTLE_DEBUG: '1' }).debug).toBe(true);
+    expect(parseCliOptions(['--repos', 'org/a'], { FETTLE_DEBUG: '0' }).debug).toBe(false);
   });
 
   it('records a local config file when one is given', () => {
@@ -93,7 +109,7 @@ describe('parseCliOptions', () => {
 
   it('rejects an invalid format instead of silently falling back to json', () => {
     expect(() => parseCliOptions(['--repos', 'org/a', '--format', 'yaml'])).toThrow(
-      /--format must be one of json, markdown, badge/,
+      /--format must be one of pretty, json, markdown, badge/,
     );
   });
 
@@ -144,6 +160,34 @@ describe('run', () => {
     expect(report.generatedAt).toBe('2026-08-15T09:30:00.000Z');
     expect(report.repos.map((repo: { repo: string }) => repo.repo)).toEqual(['org/a', 'org/b']);
     expect(report.fleet.repoCount).toBe(2);
+  });
+
+  it('renders pretty output in a terminal, and json when piped', async () => {
+    const terminal = await invoke(['--repos', 'org/a'], { isTty: true });
+    expect(terminal.stdout).toContain('org/a');
+    expect(() => JSON.parse(terminal.stdout)).toThrow();
+
+    const piped = await invoke(['--repos', 'org/a'], { isTty: false });
+    expect(JSON.parse(piped.stdout).schemaVersion).toBe(1);
+  });
+
+  it('honours an explicit --format over what the terminal suggests', async () => {
+    const { stdout } = await invoke(['--repos', 'org/a', '--format', 'json'], { isTty: true });
+    expect(JSON.parse(stdout).schemaVersion).toBe(1);
+  });
+
+  it('keeps debug output on stderr, so piped stdout stays machine-readable', async () => {
+    const { stdout, stderr } = await invoke(['--repos', 'org/a', '--debug', '--format', 'json']);
+    expect(() => JSON.parse(stdout)).not.toThrow();
+    expect(stderr).toContain('debug');
+    expect(stderr).toContain('org/a');
+  });
+
+  it('turns on debug via $FETTLE_DEBUG, for CI where flags are awkward to add', async () => {
+    const { stderr } = await invoke(['--repos', 'org/a', '--format', 'json'], {
+      env: { FETTLE_DEBUG: '1' },
+    });
+    expect(stderr).toContain('debug');
   });
 
   it('renders markdown with an evidence column', async () => {

@@ -4004,6 +4004,20 @@ function backoffMs(attempt) {
   return Math.min((attempt + 1) ** 2 * 1e3, MAX_BACKOFF_MS);
 }
 var sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+function withRequestLogging(octokit, onDebug) {
+  octokit.hook.wrap("request", async (request2, options) => {
+    const started = Date.now();
+    const label = `${options.method} ${options.url}`;
+    try {
+      const response = await request2(options);
+      onDebug(`${label} -> ${response.status} in ${Date.now() - started}ms`);
+      return response;
+    } catch (error) {
+      onDebug(`${label} -> ${statusOf(error) ?? "no response"} in ${Date.now() - started}ms`);
+      throw error;
+    }
+  });
+}
 function withRetries(octokit, retries, backoff) {
   octokit.hook.wrap("request", async (request2, options) => {
     for (let attempt = 0; ; attempt += 1) {
@@ -4016,16 +4030,46 @@ function withRetries(octokit, retries, backoff) {
     }
   });
 }
-function resolveApiBaseUrl(env = process.env, override) {
-  const candidate = override?.trim() || env.GITHUB_API_URL?.trim() || GITHUB_COM_API_URL;
-  let end = candidate.length;
-  while (end > 0 && candidate[end - 1] === "/") end -= 1;
-  return candidate.slice(0, end);
+function normaliseHost(host) {
+  const withoutScheme = host.trim().replace(/^https?:\/\//, "");
+  const [hostOnly] = withoutScheme.split("/");
+  return hostOnly;
+}
+function apiUrlForHost(host) {
+  const hostname = normaliseHost(host);
+  if (hostname === "github.com" || hostname === "api.github.com") return GITHUB_COM_API_URL;
+  return `https://${hostname}/api/v3`;
+}
+function trimTrailingSlashes(value) {
+  let end = value.length;
+  while (end > 0 && value[end - 1] === "/") end -= 1;
+  return value.slice(0, end);
+}
+function resolveApiUrl(env = process.env, inputs = {}) {
+  const candidates = [
+    ["api-url", inputs.apiUrl, false],
+    ["gh-host", inputs.host, true],
+    ["GITHUB_API_URL", env.GITHUB_API_URL, false],
+    ["GH_HOST", env.GH_HOST, true]
+  ];
+  for (const [source, raw, isHost] of candidates) {
+    const value = raw?.trim();
+    if (!value) continue;
+    return { url: trimTrailingSlashes(isHost ? apiUrlForHost(value) : value), source };
+  }
+  return { url: GITHUB_COM_API_URL, source: "default" };
 }
 function createGitHubClient(options = {}) {
+  const resolution = resolveApiUrl(options.env ?? process.env, {
+    apiUrl: options.apiUrl,
+    host: options.host
+  });
+  options.onDebug?.(
+    `api base url ${resolution.url} (from ${resolution.source}); token ${options.token ? "provided" : "absent"}`
+  );
   const octokit = new Octokit({
     auth: options.token,
-    baseUrl: resolveApiBaseUrl(options.env ?? process.env, options.apiUrl),
+    baseUrl: resolution.url,
     userAgent: `${TOOL_NAME}/${TOOL_VERSION}`,
     request: options.request
   });
@@ -4034,6 +4078,7 @@ function createGitHubClient(options = {}) {
     options.request?.retries ?? MAX_RETRIES,
     options.request?.retryBackoffMs ?? backoffMs
   );
+  if (options.onDebug) withRequestLogging(octokit, options.onDebug);
   return octokit;
 }
 
@@ -4103,6 +4148,19 @@ function httpStatus(error) {
 function message(error) {
   return error instanceof Error ? error.message : String(error);
 }
+function unreachableHostHint(error, baseUrl) {
+  const hasResponse = typeof error === "object" && error !== null && error.response;
+  if (hasResponse) return void 0;
+  const detail = message(error);
+  const looksLikeConnection = /timeout|ENOTFOUND|ECONNREFUSED|EAI_AGAIN|fetch failed|network/i.test(
+    detail
+  );
+  if (!looksLikeConnection) return void 0;
+  if (baseUrl !== GITHUB_COM_API_URL) {
+    return `Could not reach ${baseUrl}: ${detail}. Check the host is correct and reachable from here.`;
+  }
+  return `Could not reach ${GITHUB_COM_API_URL}: ${detail}. No API URL was configured, so this used github.com. For GitHub Enterprise Server, pass --api-url https://your-host/api/v3 or --gh-host your-host, or set $GITHUB_API_URL or $GH_HOST.`;
+}
 function isMissingEndpoint(status) {
   return status === 404 || status === 410;
 }
@@ -4140,6 +4198,11 @@ async function fetchMetadata(client, repo) {
         status
       );
     }
+    const unreachable = unreachableHostHint(
+      error,
+      String(client.request.endpoint.DEFAULTS.baseUrl)
+    );
+    if (unreachable !== void 0) throw new RepoAccessError(unreachable, name, status);
     throw new RepoAccessError(`Could not read ${name}: ${message(error)}`, name, status);
   }
 }
@@ -4369,7 +4432,12 @@ async function mapWithConcurrency(items, limit, worker) {
   return results;
 }
 function resolveClient(options) {
-  return options.client ?? createGitHubClient({ token: options.token ?? process.env.GITHUB_TOKEN, apiUrl: options.apiUrl });
+  return options.client ?? createGitHubClient({
+    token: options.token ?? process.env.GITHUB_TOKEN,
+    apiUrl: options.apiUrl,
+    host: options.host,
+    onDebug: options.onDebug
+  });
 }
 async function assessRepo(repo, options = {}) {
   const ref = parseRepoRef(repo);

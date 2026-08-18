@@ -49,6 +49,26 @@ export function backoffMs(attempt: number): number {
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
+ * Logs every request: method, path, status and duration.
+ *
+ * Wrapped outside the retry hook, so a retried request logs once per attempt. The
+ * URL is logged, never the headers — that is where the token is.
+ */
+function withRequestLogging(octokit: Octokit, onDebug: (message: string) => void): void {
+  octokit.hook.wrap('request', async (request, options) => {
+    const started = Date.now();
+    const label = `${options.method} ${options.url}`;
+    try {
+      const response = await request(options);
+      onDebug(`${label} -> ${response.status} in ${Date.now() - started}ms`);
+      return response;
+    } catch (error) {
+      onDebug(`${label} -> ${statusOf(error) ?? 'no response'} in ${Date.now() - started}ms`);
+      throw error;
+    }
+  });
+}
+/**
  * Retries transient failures.
  *
  * This replaces `@octokit/plugin-retry`, whose substance is about fifteen lines but
@@ -74,31 +94,92 @@ function withRetries(
   });
 }
 
+/** Where the API base URL came from, so errors can explain themselves. */
+export type ApiUrlSource = 'api-url' | 'gh-host' | 'GITHUB_API_URL' | 'GH_HOST' | 'default';
+
+export interface ApiUrlResolution {
+  url: string;
+  source: ApiUrlSource;
+}
+
+/** Strips a scheme, a trailing path and trailing slashes from a bare host. */
+function normaliseHost(host: string): string {
+  const withoutScheme = host.trim().replace(/^https?:\/\//, '');
+  const [hostOnly] = withoutScheme.split('/');
+  return hostOnly;
+}
+
 /**
- * Resolves the API base URL.
+ * Turns a hostname into an API base URL.
  *
- * Precedence: explicit override (CLI `--api-url` / Action input), then
- * `GITHUB_API_URL` which Actions runners set on github.com and GHES alike, then
- * github.com.
+ * github.com is the odd one out: its API lives on a separate host, while every
+ * GitHub Enterprise Server instance serves the API from `/api/v3` on its own.
  */
+export function apiUrlForHost(host: string): string {
+  const hostname = normaliseHost(host);
+  if (hostname === 'github.com' || hostname === 'api.github.com') return GITHUB_COM_API_URL;
+  return `https://${hostname}/api/v3`;
+}
+
+function trimTrailingSlashes(value: string): string {
+  // Scanned rather than matched with `/\/+$/`, which backtracks polynomially on a
+  // value that is mostly slashes.
+  let end = value.length;
+  while (end > 0 && value[end - 1] === '/') end -= 1;
+  return value.slice(0, end);
+}
+
+export interface ApiUrlInputs {
+  /** A full API base URL, e.g. `https://ghe.example.com/api/v3`. */
+  apiUrl?: string;
+  /** A bare hostname, e.g. `ghe.example.com`. Mirrors `gh`'s `GH_HOST`. */
+  host?: string;
+}
+
+/**
+ * Resolves the API base URL, and reports which input decided it.
+ *
+ * Precedence, most explicit first: `--api-url`, `--gh-host`, `$GITHUB_API_URL`
+ * (which Actions runners set on github.com and GHES alike), `$GH_HOST` (which the
+ * `gh` CLI sets), then github.com.
+ */
+export function resolveApiUrl(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+  inputs: ApiUrlInputs = {},
+): ApiUrlResolution {
+  const candidates: [ApiUrlSource, string | undefined, boolean][] = [
+    ['api-url', inputs.apiUrl, false],
+    ['gh-host', inputs.host, true],
+    ['GITHUB_API_URL', env.GITHUB_API_URL, false],
+    ['GH_HOST', env.GH_HOST, true],
+  ];
+
+  for (const [source, raw, isHost] of candidates) {
+    const value = raw?.trim();
+    if (!value) continue;
+    return { url: trimTrailingSlashes(isHost ? apiUrlForHost(value) : value), source };
+  }
+
+  return { url: GITHUB_COM_API_URL, source: 'default' };
+}
+
+/** Convenience wrapper for callers that only want the URL. */
 export function resolveApiBaseUrl(
   env: Readonly<Record<string, string | undefined>> = process.env,
   override?: string,
 ): string {
-  const candidate = override?.trim() || env.GITHUB_API_URL?.trim() || GITHUB_COM_API_URL;
-
-  // Trimmed by scanning rather than with `/\/+$/`, which backtracks polynomially
-  // on a value that is mostly slashes.
-  let end = candidate.length;
-  while (end > 0 && candidate[end - 1] === '/') end -= 1;
-  return candidate.slice(0, end);
+  return resolveApiUrl(env, { apiUrl: override }).url;
 }
 
 export interface GitHubClientOptions {
   token?: string;
   /** Overrides `GITHUB_API_URL`; point this at `https://ghes.example.com/api/v3` for GHES. */
   apiUrl?: string;
+  /** A bare hostname, as `gh` takes in `GH_HOST`. Lower precedence than `apiUrl`. */
+  host?: string;
   env?: Readonly<Record<string, string | undefined>>;
+  /** Called with a line of diagnostic detail. Never receives the token. */
+  onDebug?: (message: string) => void;
   /**
    * Passed through to Octokit's request layer. The `fetch` hook is the seam tests
    * use to answer requests without a network.
@@ -112,9 +193,19 @@ export interface GitHubClientOptions {
 }
 
 export function createGitHubClient(options: GitHubClientOptions = {}): GitHubClient {
+  const resolution = resolveApiUrl(options.env ?? process.env, {
+    apiUrl: options.apiUrl,
+    host: options.host,
+  });
+
+  options.onDebug?.(
+    `api base url ${resolution.url} (from ${resolution.source})` +
+      `; token ${options.token ? 'provided' : 'absent'}`,
+  );
+
   const octokit = new Octokit({
     auth: options.token,
-    baseUrl: resolveApiBaseUrl(options.env ?? process.env, options.apiUrl),
+    baseUrl: resolution.url,
     userAgent: `${TOOL_NAME}/${TOOL_VERSION}`,
     request: options.request,
   });
@@ -124,5 +215,7 @@ export function createGitHubClient(options: GitHubClientOptions = {}): GitHubCli
     options.request?.retries ?? MAX_RETRIES,
     options.request?.retryBackoffMs ?? backoffMs,
   );
+
+  if (options.onDebug) withRequestLogging(octokit, options.onDebug);
   return octokit;
 }

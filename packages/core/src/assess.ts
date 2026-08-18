@@ -31,6 +31,10 @@ export interface AssessOptions {
   token?: string;
   /** GitHub Enterprise Server API base URL; defaults to `$GITHUB_API_URL`, then github.com. */
   apiUrl?: string;
+  /** A bare hostname, as `gh` takes in `GH_HOST`. Lower precedence than `apiUrl`. */
+  host?: string;
+  /** Called with a line of diagnostic detail. Never receives the token. */
+  onDebug?: (message: string) => void;
   /** Supply a pre-built client to control retries, transport or authentication. */
   client?: GitHubClient;
   /**
@@ -70,7 +74,12 @@ async function mapWithConcurrency<T, R>(
 function resolveClient(options: AssessOptions): GitHubClient {
   return (
     options.client ??
-    createGitHubClient({ token: options.token ?? process.env.GITHUB_TOKEN, apiUrl: options.apiUrl })
+    createGitHubClient({
+      token: options.token ?? process.env.GITHUB_TOKEN,
+      apiUrl: options.apiUrl,
+      host: options.host,
+      onDebug: options.onDebug,
+    })
   );
 }
 

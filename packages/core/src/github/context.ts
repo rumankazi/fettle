@@ -21,7 +21,7 @@ import type {
   ProbeUnavailable,
   RepoContext,
 } from '../types.js';
-import type { GitHubClient } from './client.js';
+import { GITHUB_COM_API_URL, type GitHubClient } from './client.js';
 import {
   PULL_REQUEST_PAGE_SIZE,
   PULL_REQUESTS_QUERY,
@@ -86,6 +86,39 @@ function httpStatus(error: unknown): number | undefined {
 
 function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * Explains a failure to reach the host at all.
+ *
+ * A connection error against the default host almost always means the user meant a
+ * GitHub Enterprise Server instance and did not say so, and nothing else in the
+ * error hints at it.
+ *
+ * Octokit gives a network failure a synthetic `status: 500`, so the status cannot
+ * distinguish one from a genuine server error. The absence of a `response` can: a
+ * real 500 came back from somewhere.
+ */
+function unreachableHostHint(error: unknown, baseUrl: string): string | undefined {
+  const hasResponse =
+    typeof error === 'object' && error !== null && (error as { response?: unknown }).response;
+  if (hasResponse) return undefined;
+
+  const detail = message(error);
+  const looksLikeConnection = /timeout|ENOTFOUND|ECONNREFUSED|EAI_AGAIN|fetch failed|network/i.test(
+    detail,
+  );
+  if (!looksLikeConnection) return undefined;
+
+  if (baseUrl !== GITHUB_COM_API_URL) {
+    return `Could not reach ${baseUrl}: ${detail}. Check the host is correct and reachable from here.`;
+  }
+
+  return (
+    `Could not reach ${GITHUB_COM_API_URL}: ${detail}. No API URL was configured, so this used ` +
+    `github.com. For GitHub Enterprise Server, pass --api-url https://your-host/api/v3 or ` +
+    `--gh-host your-host, or set $GITHUB_API_URL or $GH_HOST.`
+  );
 }
 
 /** True for statuses meaning "this endpoint is not here", e.g. an older GHES. */
@@ -160,6 +193,12 @@ async function fetchMetadata(client: GitHubClient, repo: RepoRef): Promise<RepoM
         status,
       );
     }
+
+    const unreachable = unreachableHostHint(
+      error,
+      String(client.request.endpoint.DEFAULTS.baseUrl),
+    );
+    if (unreachable !== undefined) throw new RepoAccessError(unreachable, name, status);
 
     throw new RepoAccessError(`Could not read ${name}: ${message(error)}`, name, status);
   }
