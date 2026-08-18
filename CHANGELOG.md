@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.1.0](https://github.com/rumankazi/fettle/compare/v4.0.0...v4.1.0) (2026-08-18)
+
+
+### Features
+
+* add --gh-host, --debug and a terminal output format ([#50](https://github.com/rumankazi/fettle/issues/50)) ([54fbcb9](https://github.com/rumankazi/fettle/commit/54fbcb9782bff9e1a3a487c0f87c5adb1e44bcd0))
+
 ## [4.0.0](https://github.com/rumankazi/fettle/compare/v3.0.3...v4.0.0) (2026-08-16)
 
 
