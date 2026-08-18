@@ -7,6 +7,7 @@
 
 import { readFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
+import { prettyOptions, renderPretty, type PrettyOptions } from './pretty.js';
 import {
   assess,
   badgeFilename,
@@ -32,14 +33,19 @@ export const EXIT_USAGE = 2;
 /** A repository or its configuration could not be read; nothing was graded. */
 export const EXIT_SCAN_FAILED = 3;
 
-const FORMATS = ['json', 'markdown', 'badge'] as const;
+const FORMATS = ['pretty', 'json', 'markdown', 'badge'] as const;
 export type Format = (typeof FORMATS)[number];
 
 export interface CliOptions {
   repos: string[];
-  format: Format;
+  /** Absent when not given: the default depends on whether stdout is a terminal. */
+  format?: Format;
   failBelow?: FloorGrade;
   apiUrl?: string;
+  /** A bare hostname, as `gh` takes in `GH_HOST`. Lower precedence than `apiUrl`. */
+  host?: string;
+  /** Print diagnostics to stderr. */
+  debug: boolean;
   /** A local config file; absent means each repository supplies its own. */
   configPath?: string;
   help: boolean;
@@ -62,11 +68,16 @@ Usage:
 Options:
   --repos <list>       Comma- or newline-separated repositories. Defaults to
                        $GITHUB_REPOSITORY when set.
-  --format <format>    Output format: ${FORMATS.join(' | ')} (default: json).
+  --format <format>    Output format: ${FORMATS.join(' | ')}.
+                       Defaults to pretty in a terminal, json when piped.
   --fail-below <grade> Exit ${EXIT_BELOW_FLOOR} if any repository grades below this
                        floor: ${FLOOR_GRADES.join(' | ')}.
-  --api-url <url>      GitHub API base URL for GitHub Enterprise Server.
-                       Defaults to $GITHUB_API_URL, then https://api.github.com.
+  --api-url <url>      Full GitHub API base URL, e.g.
+                       https://ghe.example.com/api/v3. Defaults to $GITHUB_API_URL.
+  --gh-host <host>     Hostname instead of a full URL, e.g. ghe.example.com.
+                       Defaults to $GH_HOST, the variable the gh CLI uses.
+  --debug              Print the resolved host, every API request and its timing
+                       to stderr. Never prints the token. Also $FETTLE_DEBUG=1.
   --config <path>      Local config file to apply to every repository, instead of
                        reading ${CONFIG_FILENAME} from each one.
   --version            Print the version and exit.
@@ -124,7 +135,9 @@ export function parseCliOptions(
         format: { type: 'string' },
         'fail-below': { type: 'string' },
         'api-url': { type: 'string' },
+        'gh-host': { type: 'string' },
         config: { type: 'string' },
+        debug: { type: 'boolean', default: false },
         version: { type: 'boolean', default: false },
         help: { type: 'boolean', short: 'h', default: false },
       },
@@ -151,12 +164,14 @@ export function parseCliOptions(
 
   return {
     repos,
-    format: values.format === undefined ? 'json' : oneOf(values.format, FORMATS, 'format'),
+    format: values.format === undefined ? undefined : oneOf(values.format, FORMATS, 'format'),
     failBelow:
       values['fail-below'] === undefined
         ? undefined
         : oneOf(values['fail-below'], FLOOR_GRADES, 'fail-below'),
     apiUrl: values['api-url'] ?? env.GITHUB_API_URL,
+    host: values['gh-host'] ?? env.GH_HOST,
+    debug: values.debug === true || (env.FETTLE_DEBUG !== undefined && env.FETTLE_DEBUG !== '0'),
     configPath: values.config,
     help,
     version,
@@ -170,8 +185,10 @@ export function renderBadges(report: HealthReport): Record<string, BadgePayload>
   );
 }
 
-export function render(report: HealthReport, format: Format): string {
+export function render(report: HealthReport, format: Format, pretty: PrettyOptions): string {
   switch (format) {
+    case 'pretty':
+      return renderPretty(report, pretty);
     case 'json':
       return JSON.stringify(report, null, 2);
     case 'markdown':
@@ -201,6 +218,10 @@ export interface RunOptions {
   stderr: (chunk: string) => void;
   scan?: Scanner;
   now?: Date;
+  /** Whether stdout is a terminal. Decides the default format and colour. */
+  isTty?: boolean;
+  /** Terminal width, for keeping evidence on one line. */
+  columns?: number;
 }
 
 function describe(error: unknown): string {
@@ -252,6 +273,21 @@ export async function run(options: RunOptions): Promise<number> {
   const env = options.env ?? {};
   const warn = (text: string) => stderr(`${TOOL_NAME}: ${text}\n`);
 
+  // Pretty output is for a person reading it now; anything piped stays machine
+  // readable, so a script that never passed --format keeps working.
+  const isTty = options.isTty ?? false;
+  const format = cli.format ?? (isTty ? 'pretty' : 'json');
+  const pretty = prettyOptions(env, isTty, options.columns);
+
+  const debug = cli.debug
+    ? (message: string) => stderr(`${TOOL_NAME}: debug: ${message}\n`)
+    : undefined;
+
+  debug?.(
+    `format ${format}${cli.format === undefined ? ' (default)' : ''}, colour ${pretty.colour}`,
+  );
+  debug?.(`repositories: ${cli.repos.join(', ')}`);
+
   let config: ConfigInput | undefined;
   try {
     config = await readLocalConfig(cli.configPath, warn);
@@ -272,16 +308,18 @@ export async function run(options: RunOptions): Promise<number> {
     report = await (options.scan ?? assess)(cli.repos, {
       token: env.GITHUB_TOKEN,
       apiUrl: cli.apiUrl,
+      host: cli.host,
       config,
       now: options.now,
       onWarning: (repo, warning) => warn(`${repo}: ${warning}`),
+      onDebug: debug,
     });
   } catch (error) {
     warn(describe(error));
     return EXIT_SCAN_FAILED;
   }
 
-  stdout(`${render(report, cli.format)}\n`);
+  stdout(`${render(report, format, pretty)}\n`);
 
   if (cli.failBelow === undefined) return EXIT_OK;
 

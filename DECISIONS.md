@@ -574,3 +574,53 @@ apart in the first place.
 The `createRequire` banner went too. `@actions/core` was the only CommonJS
 dependency, and the bundle loads without it; CI runs the built artefact on every
 pull request, which is what would catch a regression.
+
+## D36 — A terminal format that is CLI-only, and default only in a terminal
+
+`json`, `markdown` and `badge` are contracts: something downstream parses, renders or
+polls them. A person reading their own scan in a terminal is not a contract, and
+serving them JSON by default made the common interactive case the worst-looking one.
+
+So `pretty` exists, and lives in `packages/cli`, not `packages/core`. Core builds the
+report; how a terminal draws it is not report-building, and putting it there would
+have implied the Action and library should render it too. They should not — the
+Action writes to a job summary, and a library consumer has the report object.
+
+**Default by destination, not by flag.** `--format` is now optional: a TTY gets
+`pretty`, a pipe or redirect gets `json`. `fettle --repos ... > report.json` keeps
+working with no flag, and `fettle --repos ...` typed by hand is readable. An explicit
+`--format` always wins. The seam is an `isTty` field on the run options rather than a
+read of `process.stdout` inside the renderer, so the default is testable.
+
+**Colour is written by hand.** A dozen escape codes did not justify a dependency in
+a tool that ships its own bundle, and `NO_COLOR`/`FORCE_COLOR` are twenty lines.
+Status is a word — `ok`, `FAIL`, `n/a`, `off` — not a hue, so the output survives
+being piped, pasted into an issue, or read by someone who cannot distinguish red from
+green.
+
+**Free to change.** Because nothing parses it, `pretty` is explicitly outside the
+schema stability promise in `SPEC.md`. That is the point of keeping it out of core.
+
+## D37 — `--gh-host`, and an error that names the flag
+
+Reported from a real enterprise VDI: `npx fettle --repos org/repo` timed out
+connecting to `api.github.com`, and the message said only that. Everything about the
+resolution order was working as designed — nothing was configured, so it used
+github.com — and the design was still wrong, because the user had no way to learn
+that from what they were shown.
+
+Two changes. `--gh-host`/`$GH_HOST` accepts a bare hostname, matching what the `gh`
+CLI already takes, so the common case is `--gh-host ghe.acme.com` rather than
+remembering that the API hangs off `/api/v3`. And `resolveApiUrl` now returns _where_
+the URL came from, so a connection failure against an unconfigured github.com can say
+"no API URL was configured, so this used github.com" and name the flags.
+
+**The discriminator is the absence of `error.response`, not of `error.status`.**
+Octokit gives transport failures a synthetic `status: 500`, so keying on the status
+would have attached the enterprise hint to genuine server errors. A test covers that
+case specifically, because it is the kind of thing that reads as correct.
+
+**Debug is stderr, always.** `--debug`/`$FETTLE_DEBUG` logs the resolved host and
+every request with status and timing. It goes to stderr so `--format json` stays
+pipeable with debug on, and it logs the request URL rather than its headers — the
+headers are where the token is. A test asserts the token does not appear.

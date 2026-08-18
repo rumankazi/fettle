@@ -148,6 +148,26 @@ https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/OWNER/REPO
 
 ```bash
 export GITHUB_TOKEN=...            # a PAT, or ${{ github.token }} in Actions
+npx @fettle/cli --repos vitest-dev/vitest
+```
+
+```
+fettle - 1 repository
+
+vitest-dev/vitest                                                                        F 55.6
+  ok   branch_protection   100 x3   Default branch 'main' is protected: ruleset 'Protect releases' …
+  FAIL codeowners            0 x1   No CODEOWNERS file at any of .github/CODEOWNERS, CODEOWNERS, do…
+  ok   dependency_updates  100 x2   Dependency update config found at .github/renovate.json5.
+  FAIL open_pr_count         0 x1   40 open non-draft pull request(s); 10 or fewer scores 100, 30 o…
+  FAIL stale_prs             0 x2   27 pull request(s) open more than 21 day(s) with no commit in t…
+```
+
+That format is for reading, and it is the default in a terminal only — piped or
+redirected output defaults to `json`, so `fettle --repos ... > report.json` needs no
+flag. Colour follows `NO_COLOR` and `FORCE_COLOR`. For a pull request comment or a
+job summary, ask for markdown:
+
+```bash
 npx @fettle/cli --repos vitest-dev/vitest --format markdown
 ```
 
@@ -168,11 +188,16 @@ npx @fettle/cli --repos vitest-dev/vitest --format markdown
 Scan several at once, gate a build on the result, and point at a GHES instance:
 
 ```bash
-fettle --repos acme/api,acme/web --format json > report.json
-fettle --repos acme/api --fail-below C            # exit 1 if it grades below C
-fettle --repos acme/api --api-url https://ghe.acme.com/api/v3
+fettle --repos acme/api,acme/web > report.json         # json, because it is piped
+fettle --repos acme/api --fail-below C                 # exit 1 if it grades below C
+fettle --repos acme/api --gh-host ghe.acme.com         # or --api-url, see below
 fettle --repos acme/api,acme/web --config policy.yml   # one policy for the fleet
+fettle --repos acme/api --debug                        # every request, on stderr
 ```
+
+`--debug` prints the resolved API host and every request with its status and
+timing to stderr, leaving stdout machine-readable. It never prints the token.
+`FETTLE_DEBUG=1` does the same where adding a flag is awkward.
 
 Exit codes: `0` success, `1` a repository graded below `--fail-below`, `2` invalid
 usage, `3` a repository or its configuration could not be read.
@@ -301,10 +326,24 @@ hangs. Transport failures and server errors are retried with a quadratic backoff
 
 ## GitHub Enterprise Server
 
-Nothing hardcodes `api.github.com`. The base URL comes from `--api-url`, then
-`GITHUB_API_URL` (which Actions runners set on github.com and GHES alike), then
-github.com. Endpoints missing on older GHES versions degrade the affected rule to
-`na`.
+Nothing hardcodes `api.github.com`. The base URL is resolved from the first of
+these that is set, most explicit first:
+
+| Source            | Example                                              |
+| ----------------- | ---------------------------------------------------- |
+| `--api-url`       | `https://ghe.acme.com/api/v3`                        |
+| `--gh-host`       | `ghe.acme.com`                                       |
+| `$GITHUB_API_URL` | set by Actions runners, on github.com and GHES alike |
+| `$GH_HOST`        | the variable the `gh` CLI already uses               |
+| otherwise         | github.com                                           |
+
+A host is turned into an API URL for you: `ghe.acme.com` becomes
+`https://ghe.acme.com/api/v3`, and github.com becomes `https://api.github.com`. If
+none of these is set and the request cannot reach github.com, the error says so and
+names the flags — a connection timeout to `api.github.com` from inside an enterprise
+network is almost always a missing host, not a broken one.
+
+Endpoints missing on older GHES versions degrade the affected rule to `na`.
 
 ## Development
 

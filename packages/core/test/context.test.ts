@@ -5,6 +5,7 @@ import {
   parseRepoRef,
   RepoAccessError,
 } from '../src/github/context.js';
+import { createGitHubClient } from '../src/github/client.js';
 import type { Probe } from '../src/types.js';
 import { fixture } from './helpers/fixtures.js';
 import { createTransport, type Handlers } from './helpers/transport.js';
@@ -478,5 +479,50 @@ describe('createRepoFileReader', () => {
     await expect(
       createRepoFileReader(transport.client, REPO, 'main')('.fettle.yml'),
     ).rejects.toThrow();
+  });
+});
+
+describe('an unreachable host', () => {
+  /** A client whose every request fails the way a blocked network fails. */
+  function unreachable(options: { apiUrl?: string; host?: string } = {}) {
+    return createGitHubClient({
+      ...options,
+      env: {},
+      request: {
+        retries: 0,
+        fetch: () => Promise.reject(new Error('Connect Timeout Error')),
+      },
+    });
+  }
+
+  it('says which host it could not reach, and how to point it elsewhere', async () => {
+    const error = await fetchRepoContext(unreachable(), REPO).catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(RepoAccessError);
+    expect((error as Error).message).toContain('Could not reach https://api.github.com');
+    expect((error as Error).message).toContain('Connect Timeout Error');
+    // The point of the message: a user on Enterprise Server learns why a tool they
+    // pointed at their own instance went to github.com, and what to pass instead.
+    expect((error as Error).message).toContain('--gh-host');
+    expect((error as Error).message).toContain('GITHUB_API_URL');
+  });
+
+  it('does not repeat that advice when the user already gave a host', async () => {
+    const client = unreachable({ host: 'ghe.example.com' });
+    const error = await fetchRepoContext(client, REPO).catch((e: unknown) => e);
+
+    expect((error as Error).message).toContain('Could not reach https://ghe.example.com/api/v3');
+    expect((error as Error).message).toContain('reachable from here');
+    expect((error as Error).message).not.toContain('--gh-host');
+  });
+
+  it('leaves a genuine server error alone, since the host is plainly reachable', async () => {
+    const { client } = createTransport({
+      [REPO_ROUTE]: { status: 500, body: { message: 'boom' } },
+    });
+    const error = await fetchRepoContext(client, REPO).catch((e: unknown) => e);
+
+    expect((error as Error).message).not.toContain('Could not reach');
+    expect((error as RepoAccessError).status).toBe(500);
   });
 });

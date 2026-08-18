@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  apiUrlForHost,
   backoffMs,
   createGitHubClient,
   GITHUB_COM_API_URL,
   resolveApiBaseUrl,
+  resolveApiUrl,
 } from '../src/github/client.js';
 
 describe('resolveApiBaseUrl', () => {
@@ -133,5 +135,57 @@ describe('retrying transient failures', () => {
     expect(backoffMs(1)).toBe(4000);
     expect(backoffMs(2)).toBe(8000);
     expect(backoffMs(9)).toBe(8000);
+  });
+});
+
+describe('apiUrlForHost', () => {
+  it('sends github.com to its separate API host', () => {
+    expect(apiUrlForHost('github.com')).toBe(GITHUB_COM_API_URL);
+    expect(apiUrlForHost('api.github.com')).toBe(GITHUB_COM_API_URL);
+  });
+
+  it('serves Enterprise Server its API from /api/v3 on the instance itself', () => {
+    expect(apiUrlForHost('ghe.example.com')).toBe('https://ghe.example.com/api/v3');
+  });
+
+  it('accepts what a user is likely to paste, not just a bare hostname', () => {
+    expect(apiUrlForHost('https://ghe.example.com')).toBe('https://ghe.example.com/api/v3');
+    expect(apiUrlForHost('https://ghe.example.com/')).toBe('https://ghe.example.com/api/v3');
+    expect(apiUrlForHost('  ghe.example.com  ')).toBe('https://ghe.example.com/api/v3');
+  });
+});
+
+describe('resolveApiUrl', () => {
+  it('reports where the URL came from, so an error can explain itself', () => {
+    expect(resolveApiUrl({}, {})).toEqual({ url: GITHUB_COM_API_URL, source: 'default' });
+    expect(resolveApiUrl({}, { host: 'ghe.example.com' })).toEqual({
+      url: 'https://ghe.example.com/api/v3',
+      source: 'gh-host',
+    });
+    expect(resolveApiUrl({ GH_HOST: 'ghe.example.com' }, {})).toEqual({
+      url: 'https://ghe.example.com/api/v3',
+      source: 'GH_HOST',
+    });
+  });
+
+  it('prefers the more explicit input at every step', () => {
+    const env = { GITHUB_API_URL: 'https://from-env/api/v3', GH_HOST: 'from-env-host' };
+
+    expect(resolveApiUrl(env, { apiUrl: 'https://flag/api/v3', host: 'flag-host' }).source).toBe(
+      'api-url',
+    );
+    expect(resolveApiUrl(env, { host: 'flag-host' }).source).toBe('gh-host');
+    expect(resolveApiUrl(env, {}).source).toBe('GITHUB_API_URL');
+    expect(resolveApiUrl({ GH_HOST: 'from-env-host' }, {}).source).toBe('GH_HOST');
+  });
+
+  it('skips blank inputs rather than resolving to an unusable URL', () => {
+    expect(resolveApiUrl({ GH_HOST: '  ' }, { apiUrl: '', host: '   ' }).source).toBe('default');
+  });
+
+  it('trims trailing slashes, which Octokit would otherwise double up', () => {
+    expect(resolveApiUrl({}, { apiUrl: 'https://ghe.example.com/api/v3///' }).url).toBe(
+      'https://ghe.example.com/api/v3',
+    );
   });
 });
