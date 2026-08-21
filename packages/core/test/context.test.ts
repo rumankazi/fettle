@@ -542,6 +542,51 @@ describe('fetchRepoContext: the dependency dashboard', () => {
   });
 });
 
+describe('fetchRepoContext: the permission a blocked check needs', () => {
+  /**
+   * The evidence has always named the permission in prose. `needs` carries it as
+   * data as well, so the report can group blocked checks by the one grant that
+   * fixes them rather than repeating the sentence per rule.
+   */
+  it('names the permission as data, not only in the prose', async () => {
+    const { context } = fetchWith({
+      [BRANCH_RULES]: FORBIDDEN,
+      [RULESETS]: FORBIDDEN,
+      [LEGACY_PROTECTION]: FORBIDDEN,
+      [GRAPHQL]: FORBIDDEN,
+      [ISSUES]: FORBIDDEN,
+    });
+    const result = await context;
+
+    for (const [probe, permission] of [
+      [result.branchProtection, 'administration:read'],
+      [result.pullRequests, 'pull_requests:read'],
+      [result.dependencyDashboard, 'issues:read'],
+    ] as const) {
+      expect(probe.available).toBe(false);
+      if (probe.available) continue;
+      expect(probe.needs).toBe(permission);
+      // The prose still says it too, so the evidence reads on its own.
+      expect(probe.reason).toContain(permission);
+    }
+  });
+
+  it('leaves it unset for a rate limit, which no grant would fix', async () => {
+    const rateLimited = {
+      status: 403,
+      body: { message: 'API rate limit exceeded' },
+      headers: { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': '1800000000' },
+    };
+    const { context } = fetchWith({ [GRAPHQL]: rateLimited });
+    const probe = (await context).pullRequests;
+
+    expect(probe.available).toBe(false);
+    if (probe.available) return;
+    expect(probe.needs).toBeUndefined();
+    expect(probe.reason).toContain('rate limit');
+  });
+});
+
 describe('fetchRepoContext: request budget', () => {
   it('stays within about ten requests for a typical repository', async () => {
     const { transport, context } = fetchWith();

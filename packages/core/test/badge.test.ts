@@ -9,7 +9,14 @@ import {
 import type { Grade, RepoReport } from '../src/types.js';
 
 function repo(grade: Grade, score: number | null): RepoReport {
-  return { repo: 'acme/demo', defaultBranch: 'main', score, grade, rules: [] };
+  return {
+    repo: 'acme/demo',
+    defaultBranch: 'main',
+    score,
+    grade,
+    coverage: { scoredRules: 0, totalRules: 0, scoredWeight: 0, totalWeight: 0, ratio: 0 },
+    rules: [],
+  };
 }
 
 describe('badge filenames', () => {

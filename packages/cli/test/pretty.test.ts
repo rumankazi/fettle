@@ -105,14 +105,71 @@ describe('renderPretty', () => {
           score: null,
           weight: 3,
           evidence: 'token lacks administration:read',
+          details: { needs: 'administration:read' },
         },
       ]),
       plain,
     );
 
     expect(out).toContain('Checks that could not run');
-    expect(out).toContain('acme/demo branch_protection');
-    expect(out).toContain('administration:read');
+    expect(out).toContain('acme/demo');
+    expect(out).toContain('grant administration:read to unlock branch_protection (weight 3)');
+  });
+
+  it('groups blocked checks by the grant that fixes them, not by the rule', () => {
+    const blocked = (id: RuleResult['id'], weight: number): RuleResult => ({
+      id,
+      status: 'na',
+      score: null,
+      weight,
+      evidence: 'no pull request access',
+      details: { needs: 'pull_requests:read' },
+    });
+
+    const out = renderPretty(
+      report([passing, blocked('open_pr_count', 1), blocked('stale_prs', 2)]),
+      plain,
+    );
+
+    expect(out).toContain('grant pull_requests:read to unlock open_pr_count, stale_prs (weight 3)');
+    // Once, not once per rule.
+    expect(out.match(/pull_requests:read/g)).toHaveLength(1);
+  });
+
+  it('wraps the fix rather than truncating it, since that is the actionable part', () => {
+    const out = renderPretty(
+      report([
+        passing,
+        {
+          id: 'branch_protection',
+          status: 'na',
+          score: null,
+          weight: 3,
+          evidence:
+            'Reading branch protection needs repository administration:read, which the default ' +
+            'GITHUB_TOKEN does not have. Grant it, or supply a PAT or App token, to unlock this check.',
+        },
+      ]),
+      { colour: false, width: 80 },
+    );
+
+    // The whole sentence survives, across however many lines it takes.
+    expect(out.replace(/\s+/g, ' ')).toContain('supply a PAT or App token, to unlock this check.');
+    for (const line of out.split('\n')) expect(line.length).toBeLessThanOrEqual(80);
+  });
+
+  it('explains why a repository has no grade instead of leaving it blank', () => {
+    const out = renderPretty(
+      report([
+        { ...passing, weight: 1 },
+        { id: 'stale_prs', status: 'na', score: null, weight: 9, evidence: 'no access' },
+      ]),
+      plain,
+    );
+
+    expect(out).toContain('N/A');
+    expect(out).toContain('1 of 10 weight could be scored');
+    expect(out).toContain('no grade is reported');
   });
 
   it('shows a dash rather than a number for an unscored rule', () => {

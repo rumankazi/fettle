@@ -153,6 +153,23 @@ function aggregateRepoScore(rules) {
   if (denominator === 0) return null;
   return roundToOneDecimal(numerator / denominator);
 }
+var MIN_COVERAGE = 0.5;
+function coverageOf(rules) {
+  const applicable = rules.filter((rule) => rule.status !== "disabled");
+  const scored = applicable.filter(countsTowardScore);
+  const totalWeight = applicable.reduce((sum, rule) => sum + rule.weight, 0);
+  const scoredWeight = scored.reduce((sum, rule) => sum + rule.weight, 0);
+  return {
+    scoredRules: scored.length,
+    totalRules: applicable.length,
+    scoredWeight,
+    totalWeight,
+    ratio: totalWeight === 0 ? 0 : Math.round(scoredWeight / totalWeight * 1e3) / 1e3
+  };
+}
+function isScoreRepresentative(coverage) {
+  return coverage.totalWeight > 0 && coverage.ratio >= MIN_COVERAGE;
+}
 function gradeFromScore(score) {
   if (score === null) return "N/A";
   if (score >= 90) return "A";
@@ -179,13 +196,14 @@ function fail(id, settings, evidence, details) {
   return { id, status: "fail", score: 0, weight: settings.weight, evidence, details };
 }
 function notApplicable(id, settings, probe, details) {
+  const merged = probe.needs === void 0 ? details : { ...details, needs: probe.needs };
   return {
     id,
     status: "na",
     score: null,
     weight: settings.weight,
     evidence: probe.reason,
-    details
+    details: merged
   };
 }
 function disabled(id, settings) {
@@ -397,6 +415,37 @@ function evaluateRules(ctx, settings) {
   });
 }
 
+// ../core/src/blocked.ts
+function needsOf(rule) {
+  const needs = rule.details?.needs;
+  return typeof needs === "string" ? needs : null;
+}
+function blockedGroups(repo) {
+  const groups = /* @__PURE__ */ new Map();
+  for (const rule of repo.rules) {
+    if (rule.status !== "na") continue;
+    const needs = needsOf(rule);
+    const key = needs ?? ` ${rule.id}`;
+    const existing = groups.get(key);
+    if (existing === void 0) {
+      groups.set(key, { needs, rules: [rule.id], weight: rule.weight, reason: rule.evidence });
+    } else {
+      existing.rules.push(rule.id);
+      existing.weight += rule.weight;
+    }
+  }
+  return [...groups.values()].sort(
+    (a, b) => b.weight - a.weight || a.rules[0].localeCompare(b.rules[0])
+  );
+}
+function coverageNote(repo) {
+  const { scoredWeight, totalWeight } = repo.coverage;
+  if (totalWeight === 0) return "No checks were applicable to this repository.";
+  if (scoredWeight === totalWeight) return void 0;
+  const scale = `${scoredWeight} of ${totalWeight} weight could be scored`;
+  return repo.score === null ? `Only ${scale}, so no grade is reported: too little of this repository could be read to stand behind one.` : `${scale}; the grade reflects only those checks.`;
+}
+
 // ../core/src/branding.ts
 var TOOL_NAME = "fettle";
 var TOOL_VERSION = "4.2.0";
@@ -490,8 +539,9 @@ function badgeSvgFilename(repo) {
 
 // ../core/src/report.ts
 function buildRepoReport({ repo, defaultBranch, rules }) {
-  const score = aggregateRepoScore(rules);
-  return { repo, defaultBranch, score, grade: gradeFromScore(score), rules };
+  const coverage = coverageOf(rules);
+  const score = isScoreRepresentative(coverage) ? aggregateRepoScore(rules) : null;
+  return { repo, defaultBranch, score, grade: gradeFromScore(score), coverage, rules };
 }
 function buildFleetSummary(repos) {
   const scores = repos.map((repo) => repo.score).filter((score) => score !== null);
@@ -530,15 +580,16 @@ function renderRepoSection(repo) {
       (rule) => `| \`${rule.id}\` | ${rule.status} | ${rule.score ?? "\u2014"} | ${rule.weight} | ${escapeMarkdown(rule.evidence)} |`
     )
   ];
-  const blocked = repo.rules.filter((rule) => rule.status === "na").sort((a, b) => b.weight - a.weight);
+  const blocked = blockedGroups(repo);
   if (blocked.length > 0) {
+    const note = coverageNote(repo);
+    lines.push("", "### Checks we could not run", "");
+    if (note !== void 0) lines.push(escapeMarkdown(note), "");
     lines.push(
-      "",
-      "### Checks we could not run",
-      "",
-      ...blocked.map(
-        (rule) => `- \`${rule.id}\` (weight ${rule.weight}) \u2014 ${escapeMarkdown(rule.evidence)}`
-      )
+      ...blocked.map((group) => {
+        const rules = group.rules.map((id) => `\`${id}\``).join(", ");
+        return group.needs === null ? `- ${rules} (weight ${group.weight}) \u2014 ${escapeMarkdown(group.reason)}` : `- Grant **\`${group.needs}\`** to unlock ${rules} (weight ${group.weight}).`;
+      })
     );
   }
   return lines.join("\n");
@@ -4110,8 +4161,8 @@ function createGitHubClient(options = {}) {
 function available(value) {
   return { available: true, value };
 }
-function unavailable(reason) {
-  return { available: false, reason };
+function unavailable(reason, needs) {
+  return needs === void 0 ? { available: false, reason } : { available: false, reason, needs };
 }
 
 // ../core/src/github/queries.ts
@@ -4278,11 +4329,20 @@ async function fetchExistingPaths(client, repo, defaultBranch) {
     if (status === 409) {
       return available([]);
     }
+    const rateLimited = rateLimitHint(error);
+    if (rateLimited !== void 0) return unavailable(rateLimited);
     return unavailable(
-      rateLimitHint(error) ?? `Could not list the contents of ${formatRepoRef(repo)}: ${message(error)}. Grant the token contents:read to unlock the file-based checks.`
+      `Could not list the contents of ${formatRepoRef(repo)}: ${message(error)}. Grant the token ${PERMISSION.contents} to unlock the file-based checks.`,
+      PERMISSION.contents
     );
   }
 }
+var PERMISSION = {
+  contents: "contents:read",
+  administration: "administration:read",
+  pullRequests: "pull_requests:read",
+  issues: "issues:read"
+};
 var PERMISSION_HINT = "Reading branch protection needs repository administration:read, which the default GITHUB_TOKEN does not have. Grant it, or supply a PAT or App token, to unlock this check.";
 async function describeRulesets(client, repo, rules) {
   const types = [...new Set(rules.map((rule) => rule.type).filter(Boolean))].sort();
@@ -4354,15 +4414,18 @@ async function fetchBranchProtection(client, repo, branch) {
       });
     }
     if (status === 401 || status === 403) {
-      return unavailable(rateLimitHint(error) ?? PERMISSION_HINT);
+      const rateLimited = rateLimitHint(error);
+      return rateLimited !== void 0 ? unavailable(rateLimited) : unavailable(PERMISSION_HINT, PERMISSION.administration);
     }
     if (isMissingEndpoint(status)) {
       return unavailable(
-        `Neither branch rulesets nor branch protection could be read for '${branch}'. ${PERMISSION_HINT} On GitHub Enterprise Server, this version may not expose either endpoint.`
+        `Neither branch rulesets nor branch protection could be read for '${branch}'. ${PERMISSION_HINT} On GitHub Enterprise Server, this version may not expose either endpoint.`,
+        PERMISSION.administration
       );
     }
     return unavailable(
-      `Could not read branch protection for '${branch}': ${message(error)}. ${PERMISSION_HINT}`
+      `Could not read branch protection for '${branch}': ${message(error)}. ${PERMISSION_HINT}`,
+      PERMISSION.administration
     );
   }
 }
@@ -4383,7 +4446,8 @@ function describeGraphqlFailure(repo, error) {
   }
   if (status === 401 || status === 403) {
     return unavailable(
-      `Not authorised to read pull requests for ${formatRepoRef(repo)}. Grant the token pull_requests:read to unlock the pull request checks.`
+      `Not authorised to read pull requests for ${formatRepoRef(repo)}. Grant the token ${PERMISSION.pullRequests} to unlock the pull request checks.`,
+      PERMISSION.pullRequests
     );
   }
   if (isMissingEndpoint(status)) {
@@ -4457,7 +4521,8 @@ async function fetchDependencyDashboard(client, repo) {
     if (rateLimited !== void 0) return unavailable(rateLimited);
     if (status === 401 || status === 403) {
       return unavailable(
-        `Not authorised to read issues for ${formatRepoRef(repo)}. Grant the token issues:read so a centrally configured Renovate can be detected from its dependency dashboard.`
+        `Not authorised to read issues for ${formatRepoRef(repo)}. Grant the token ${PERMISSION.issues} so a centrally configured Renovate can be detected from its dependency dashboard.`,
+        PERMISSION.issues
       );
     }
     return unavailable(

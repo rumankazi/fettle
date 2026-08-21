@@ -9,6 +9,7 @@
  * justify a dependency in a tool that ships its own bundle.
  */
 
+import { blockedGroups, coverageNote } from '@fettle/core';
 import type { Grade, HealthReport, RepoReport, RuleResult } from '@fettle/core';
 
 const CSI = '\u001b[';
@@ -83,6 +84,53 @@ function column(text: string, width: number): string {
   return truncate(text, width).padEnd(width);
 }
 
+/**
+ * Wraps text to a width, indenting every line.
+ *
+ * The rule table truncates because it is a table and alignment is what makes it
+ * readable at a glance. The blocked-checks section does not: it exists to tell
+ * someone how to fix their token, and truncating it cut off the half that said
+ * what to do.
+ */
+function wrap(text: string, width: number, indent: string, hanging = indent): string[] {
+  const lines: string[] = [];
+  let current = '';
+  let prefix = indent;
+
+  const flush = () => {
+    if (current === '') return;
+    lines.push(prefix + current);
+    current = '';
+    prefix = hanging;
+  };
+
+  for (const word of text.split(/\s+/).filter(Boolean)) {
+    let rest = word;
+
+    // A single word can exceed the width - a URL, or a path with no spaces in it.
+    // Splitting on whitespace alone would emit it as one over-long line, so the
+    // remainder is hard-broken rather than allowed to overflow.
+    while (rest.length > Math.max(1, width - prefix.length)) {
+      flush();
+      const room = Math.max(1, width - prefix.length);
+      lines.push(prefix + rest.slice(0, room));
+      prefix = hanging;
+      rest = rest.slice(room);
+    }
+
+    const limit = Math.max(1, width - prefix.length);
+    if (current === '') current = rest;
+    else if (current.length + 1 + rest.length <= limit) current += ` ${rest}`;
+    else {
+      flush();
+      current = rest;
+    }
+  }
+
+  flush();
+  return lines;
+}
+
 /** Columns consumed by everything on a rule line except the evidence. */
 const RULE_ID_WIDTH = 19;
 const RULE_GUTTER = 2 + 4 + 1 + RULE_ID_WIDTH + 1 + 3 + 1 + 3 + 2;
@@ -125,15 +173,32 @@ export function renderPretty(report: HealthReport, options: PrettyOptions): stri
 
   for (const repo of report.repos) lines.push(...renderRepo(repo, options));
 
-  const blocked = report.repos.flatMap((repo) =>
-    repo.rules.filter((rule) => rule.status === 'na').map((rule) => ({ repo: repo.repo, rule })),
-  );
+  const blockedRepos = report.repos
+    .map((repo) => ({ repo, groups: blockedGroups(repo) }))
+    .filter(({ groups }) => groups.length > 0);
 
-  if (blocked.length > 0) {
+  if (blockedRepos.length > 0) {
     lines.push('', paint(options, 'yellow', 'Checks that could not run'));
-    for (const { repo, rule } of blocked) {
-      const detail = `${repo} ${rule.id} - ${rule.evidence}`;
-      lines.push(paint(options, 'grey', `  ${truncate(detail, options.width - 2)}`));
+
+    for (const { repo, groups } of blockedRepos) {
+      lines.push('', paint(options, 'blue', `  ${truncate(repo.repo, options.width - 2)}`));
+
+      const note = coverageNote(repo);
+      if (note !== undefined) {
+        lines.push(...wrap(note, options.width, '    ').map((l) => paint(options, 'grey', l)));
+      }
+
+      for (const group of groups) {
+        const rules = group.rules.join(', ');
+        const detail =
+          group.needs === null
+            ? `${rules} (weight ${group.weight}) - ${group.reason}`
+            : `grant ${group.needs} to unlock ${rules} (weight ${group.weight})`;
+
+        const [first, ...rest] = wrap(detail, options.width, '    ', '      ');
+        lines.push(paint(options, group.needs === null ? 'grey' : 'yellow', first));
+        lines.push(...rest.map((line) => paint(options, 'grey', line)));
+      }
     }
   }
 

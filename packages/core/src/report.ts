@@ -4,8 +4,14 @@
  * (SCORING.md §6).
  */
 
+import { blockedGroups, coverageNote } from './blocked.js';
 import { TOOL_NAME, TOOL_VERSION } from './branding.js';
-import { aggregateRepoScore, gradeFromScore } from './scoring.js';
+import {
+  aggregateRepoScore,
+  coverageOf,
+  gradeFromScore,
+  isScoreRepresentative,
+} from './scoring.js';
 import type { FleetSummary, Grade, HealthReport, RepoReport, RuleResult } from './types.js';
 
 // Badge rendering lives in badge.ts; re-exported here because this is where callers
@@ -25,10 +31,19 @@ export interface RepoAssessment {
   rules: RuleResult[];
 }
 
-/** Scores one repository's rule results and grades them. */
+/**
+ * Scores one repository's rule results and grades them.
+ *
+ * Withholds the aggregate when too little of the repository could be read
+ * (SCORING.md §3). The individual rule scores are still all there — it is only the
+ * single number, the one that ends up on a badge and in a build gate, that needs
+ * enough behind it to be worth stating.
+ */
 export function buildRepoReport({ repo, defaultBranch, rules }: RepoAssessment): RepoReport {
-  const score = aggregateRepoScore(rules);
-  return { repo, defaultBranch, score, grade: gradeFromScore(score), rules };
+  const coverage = coverageOf(rules);
+  const score = isScoreRepresentative(coverage) ? aggregateRepoScore(rules) : null;
+
+  return { repo, defaultBranch, score, grade: gradeFromScore(score), coverage, rules };
 }
 
 export function buildFleetSummary(repos: readonly RepoReport[]): FleetSummary {
@@ -101,19 +116,24 @@ function renderRepoSection(repo: RepoReport): string {
   ];
 
   // SCORING.md §7: actionability is part of the spec, so surface what a change of
-  // token or permission would unlock, ordered by how much score is at stake.
-  const blocked = repo.rules
-    .filter((rule) => rule.status === 'na')
-    .sort((a, b) => b.weight - a.weight);
+  // token or permission would unlock, grouped by the grant that fixes it and
+  // ordered by how much score is at stake.
+  const blocked = blockedGroups(repo);
 
   if (blocked.length > 0) {
+    const note = coverageNote(repo);
+
+    lines.push('', '### Checks we could not run', '');
+    if (note !== undefined) lines.push(escapeMarkdown(note), '');
+
     lines.push(
-      '',
-      '### Checks we could not run',
-      '',
-      ...blocked.map(
-        (rule) => `- \`${rule.id}\` (weight ${rule.weight}) — ${escapeMarkdown(rule.evidence)}`,
-      ),
+      ...blocked.map((group) => {
+        const rules = group.rules.map((id) => `\`${id}\``).join(', ');
+
+        return group.needs === null
+          ? `- ${rules} (weight ${group.weight}) — ${escapeMarkdown(group.reason)}`
+          : `- Grant **\`${group.needs}\`** to unlock ${rules} (weight ${group.weight}).`;
+      }),
     );
   }
 

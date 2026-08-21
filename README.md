@@ -15,12 +15,6 @@ That first badge is this repository's own grade, produced by this tool on every 
 to `main`. It is a real five-rule score, not an average with the awkward checks
 excluded — the report says exactly how each one was reached.
 
-> **v2.0.0** — on [npm](https://www.npmjs.com/package/@fettle/cli) and the
-> [GitHub Marketplace](https://github.com/marketplace/actions/fettle-repository-health-grade).
-> The report schema is a contract: `HealthReport` changes additively, or
-> `schemaVersion` goes up. See [SCORING.md §6](SCORING.md) for exactly what that
-> covers.
-
 ## What it measures
 
 | Rule                 | Type      | Question                                                                      | Default weight |
@@ -37,8 +31,12 @@ Renovate operator from a shared config: member repositories hold no `renovate.js
 of their own, and the open dashboard is the only thing that shows they are covered.
 
 Scoring is a weighted average, and a check we could not run scores nothing at all —
-it leaves both sides of the average, so a narrow token never costs you points. The
-full math is in [SCORING.md](SCORING.md), which is normative.
+it leaves both sides of the average, so a narrow token never costs you points. If
+fewer than half the weights could be scored, no grade is reported at all: an average
+over one rule of five is arithmetically correct and tells you about your token
+rather than your repository. Every report carries a `coverage` object so you can see
+exactly what the number is based on. The full math is in [SCORING.md](SCORING.md),
+which is normative.
 
 ## Fettle vs OSSF Scorecard
 
@@ -308,6 +306,20 @@ the higher grade.
 | CODEOWNERS, dependency configs, PRs                 | the default `GITHUB_TOKEN`                               |
 | `dependency_updates`, centrally-configured Renovate | **issues: read**, to see the dependency dashboard        |
 | `branch_protection`                                 | repository **administration: read** (a PAT or App token) |
+
+Every blocked check names the permission that would unlock it, and the report groups
+them by that permission rather than repeating it per rule:
+
+```
+Checks that could not run
+
+  acme/api
+    Only 1 of 9 weight could be scored, so no grade is reported: too little of this
+    repository could be read to stand behind one.
+    grant administration:read to unlock branch_protection (weight 3)
+    grant pull_requests:read to unlock open_pr_count, stale_prs (weight 3)
+    grant issues:read to unlock dependency_updates (weight 2)
+```
 
 With a default token, `branch_protection` reports `na` and the report tells you what
 granting `administration:read` would unlock. It is never a `fail` — a permission
