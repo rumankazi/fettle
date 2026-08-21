@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.3.0](https://github.com/rumankazi/fettle/compare/v4.2.0...v4.3.0) (2026-08-21)
+
+
+### Features
+
+* withhold the grade when too little of a repository could be read ([#56](https://github.com/rumankazi/fettle/issues/56)) ([19f813d](https://github.com/rumankazi/fettle/commit/19f813dcc527c82a17da4f3e77d856723d6708b9))
+
 ## [4.2.0](https://github.com/rumankazi/fettle/compare/v4.1.0...v4.2.0) (2026-08-18)
 
 
