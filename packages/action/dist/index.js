@@ -448,7 +448,7 @@ function coverageNote(repo) {
 
 // ../core/src/branding.ts
 var TOOL_NAME = "fettle";
-var TOOL_VERSION = "4.2.0";
+var TOOL_VERSION = "4.3.0";
 var CONFIG_FILENAME = ".fettle.yml";
 var BADGE_LABEL = "repo health";
 var DEFAULT_OUTPUT_DIR = "fettle-report";
