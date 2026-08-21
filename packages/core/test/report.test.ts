@@ -114,6 +114,7 @@ describe('buildBadgePayload', () => {
       defaultBranch: 'main',
       score,
       grade: grade as never,
+      coverage: { scoredRules: 0, totalRules: 0, scoredWeight: 0, totalWeight: 0, ratio: 0 },
       rules: [],
     });
 
@@ -131,6 +132,7 @@ describe('buildBadgePayload', () => {
       defaultBranch: 'main',
       score: null,
       grade: 'N/A',
+      coverage: { scoredRules: 0, totalRules: 0, scoredWeight: 0, totalWeight: 0, ratio: 0 },
       rules: [],
     });
 
@@ -162,6 +164,74 @@ describe('renderMarkdown', () => {
   it('calls out checks that could not run, highest weight first (SCORING.md §7)', () => {
     expect(markdown).toContain('### Checks we could not run');
     expect(markdown).toContain('`branch_protection` (weight 3) — token lacks administration:read');
+  });
+
+  it('groups blocked checks by the grant that fixes them', () => {
+    const grouped = renderMarkdown(
+      buildHealthReport(
+        [
+          {
+            repo: 'acme/narrow',
+            defaultBranch: 'main',
+            rules: [
+              { id: 'codeowners', status: 'pass', score: 100, weight: 1, evidence: 'found' },
+              {
+                id: 'open_pr_count',
+                status: 'na',
+                score: null,
+                weight: 1,
+                evidence: 'no pull request access',
+                details: { needs: 'pull_requests:read' },
+              },
+              {
+                id: 'stale_prs',
+                status: 'na',
+                score: null,
+                weight: 2,
+                evidence: 'no pull request access',
+                details: { needs: 'pull_requests:read' },
+              },
+            ],
+          },
+        ],
+        GENERATED_AT,
+      ),
+    );
+
+    expect(grouped).toContain(
+      '- Grant **`pull_requests:read`** to unlock `open_pr_count`, `stale_prs` (weight 3).',
+    );
+    // Named once, not once per blocked rule.
+    expect(grouped.match(/Grant \*\*`pull_requests:read`\*\*/g)).toHaveLength(1);
+  });
+
+  it('explains a withheld grade rather than printing a bare N/A', () => {
+    const thin = renderMarkdown(
+      buildHealthReport(
+        [
+          {
+            repo: 'acme/thin',
+            defaultBranch: 'main',
+            rules: [
+              { id: 'codeowners', status: 'fail', score: 0, weight: 1, evidence: 'missing' },
+              {
+                id: 'branch_protection',
+                status: 'na',
+                score: null,
+                weight: 9,
+                evidence: 'no admin access',
+                details: { needs: 'administration:read' },
+              },
+            ],
+          },
+        ],
+        GENERATED_AT,
+      ),
+    );
+
+    expect(thin).toContain('**Grade N/A**');
+    expect(thin).toContain('Only 1 of 10 weight could be scored');
+    expect(thin).not.toContain('Grade F');
   });
 
   it('omits the unrunnable section when every check ran', () => {

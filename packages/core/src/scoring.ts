@@ -5,7 +5,7 @@
  * wrong. Rules must call into here rather than reimplementing a curve.
  */
 
-import type { Grade, RuleResult } from './types.js';
+import type { Coverage, Grade, RuleResult } from './types.js';
 
 /** Rule scores and aggregates are reported to 1 decimal (SCORING.md §1, §3). */
 function roundToOneDecimal(value: number): number {
@@ -63,6 +63,46 @@ export function aggregateRepoScore(rules: readonly RuleResult[]): number | null 
   if (denominator === 0) return null;
 
   return roundToOneDecimal(numerator / denominator);
+}
+
+/**
+ * The share of applicable weight that must be scoreable for the aggregate to mean
+ * anything (SCORING.md §3).
+ *
+ * A token with only `contents:read` leaves one rule of five scoreable, and the
+ * average over that one rule is arithmetically correct and completely misleading:
+ * it reports a confident `F` about a repository it could barely read. Half is the
+ * line because it keeps the ordinary case working — `branch_protection` is weight
+ * 3 of 9 and goes `na` on the default `GITHUB_TOKEN`, which still leaves two
+ * thirds and a grade worth printing.
+ */
+export const MIN_COVERAGE = 0.5;
+
+/**
+ * How much of a repository could be graded.
+ *
+ * `disabled` rules leave the denominator as well as the numerator: a user who
+ * turned a rule off has not lost coverage, they have changed what coverage means.
+ */
+export function coverageOf(rules: readonly RuleResult[]): Coverage {
+  const applicable = rules.filter((rule) => rule.status !== 'disabled');
+  const scored = applicable.filter(countsTowardScore);
+
+  const totalWeight = applicable.reduce((sum, rule) => sum + rule.weight, 0);
+  const scoredWeight = scored.reduce((sum, rule) => sum + rule.weight, 0);
+
+  return {
+    scoredRules: scored.length,
+    totalRules: applicable.length,
+    scoredWeight,
+    totalWeight,
+    ratio: totalWeight === 0 ? 0 : Math.round((scoredWeight / totalWeight) * 1000) / 1000,
+  };
+}
+
+/** Whether enough of the repository was readable to stand behind an aggregate. */
+export function isScoreRepresentative(coverage: Coverage): boolean {
+  return coverage.totalWeight > 0 && coverage.ratio >= MIN_COVERAGE;
 }
 
 /** Grade bands, boundaries taking the higher grade (SCORING.md §4). */

@@ -6,6 +6,10 @@ export function available<T>(value: T): Probe<T> {
   return { available: true, value };
 }
 
-export function unavailable(reason: string): ProbeUnavailable {
-  return { available: false, reason };
+/**
+ * @param needs the permission that would unlock this, e.g. `issues:read`. Omit
+ *   when no grant would help, such as an exhausted rate limit.
+ */
+export function unavailable(reason: string, needs?: string): ProbeUnavailable {
+  return needs === undefined ? { available: false, reason } : { available: false, reason, needs };
 }

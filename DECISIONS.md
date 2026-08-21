@@ -688,3 +688,54 @@ consumed the first query's stubs, and a pagination test that asserted PRs `[1, 2
 started returning `[1, 3]` while still looking like it passed for the right reason.
 Handlers may now name the operation (`POST /graphql FettleOpenIssues`), with the bare
 route as a fallback.
+
+## D39 — A grade is withheld when too little of the repository could be read
+
+Asked whether the tool tells a user what permission they are missing, the answer was
+"yes, in every message" — and then the same check showed a token with only
+`contents:read` producing `score: 0.0`, `grade: F`, and a badge reading `F (0.0)` in
+red. One rule of five was scoreable. The arithmetic was correct and the output was a
+lie: it described the token, not the repository.
+
+**The floor is coverage, not rule count.** `coverage = scored weight / applicable
+weight`, and below `0.5` the score is `null` and the grade `N/A`. This generalises
+the rule that was already there — all-`na` was simply `coverage = 0` — rather than
+adding a second concept. `0.5` was chosen so the ordinary case survives:
+`branch_protection` is weight 3 of 9 and goes `na` on the default `GITHUB_TOKEN`,
+which leaves `0.667`.
+
+Withholding the aggregate fixes three things at once, which is why it beat the
+alternative of annotating the `F`. `N/A` never trips `--fail-below`, so a token
+problem stops failing builds. Badges go grey instead of red. And a reader who sees
+`N/A` goes looking for why, where an `F` looks like an answer.
+
+Nothing is actually lost: every individual rule score is still in `rules[]`, and the
+new `coverage` object states exactly what the withheld aggregate would have been
+based on. Consumers wanting the old behaviour can compute it.
+
+**`disabled` rules leave the denominator too.** Turning a rule off changes what full
+coverage means; it does not cost you coverage. Otherwise disabling three of five
+rules would suppress your own grade.
+
+## D40 — The needed permission is data, not prose
+
+The evidence has always named the permission. It was only ever a sentence, so
+nothing could group by it, and a narrow token printed `pull_requests:read` twice —
+once for `open_pr_count`, once for `stale_prs` — with the fix truncated off the end
+of both.
+
+`ProbeUnavailable` now carries an optional `needs`, `unavailable()` takes it as a
+second argument, and `notApplicable` copies it onto `details.needs`. The permission
+strings live in one `PERMISSION` constant so the prose and the field cannot drift.
+
+`needs` is deliberately absent where no grant would help — an exhausted rate limit,
+an endpoint an older GHES does not expose. Those stay one group per rule, because
+their reasons genuinely differ and a merged group would carry one reason that was
+wrong for the rest.
+
+**The blocked section stopped truncating.** It exists to tell someone how to fix
+their token and it was cutting off the half that said what to do
+(`administration:read,…`). It now wraps. The rule table still truncates, because it
+is a table and alignment is what makes it scannable — a different job, a different
+answer. Wrapping needed a hard break for words longer than the line, which a test
+caught with a 400-character evidence string that produced a 406-character line.

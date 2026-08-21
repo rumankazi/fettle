@@ -269,10 +269,13 @@ async function fetchExistingPaths(
       return available([]);
     }
 
+    const rateLimited = rateLimitHint(error);
+    if (rateLimited !== undefined) return unavailable(rateLimited);
+
     return unavailable(
-      rateLimitHint(error) ??
-        `Could not list the contents of ${formatRepoRef(repo)}: ${message(error)}. ` +
-          `Grant the token contents:read to unlock the file-based checks.`,
+      `Could not list the contents of ${formatRepoRef(repo)}: ${message(error)}. ` +
+        `Grant the token ${PERMISSION.contents} to unlock the file-based checks.`,
+      PERMISSION.contents,
     );
   }
 }
@@ -280,6 +283,14 @@ async function fetchExistingPaths(
 /* -------------------------------------------------------------------------- */
 /* Branch protection                                                          */
 /* -------------------------------------------------------------------------- */
+
+/** Token permissions, named once so evidence and the roll-up cannot drift apart. */
+export const PERMISSION = {
+  contents: 'contents:read',
+  administration: 'administration:read',
+  pullRequests: 'pull_requests:read',
+  issues: 'issues:read',
+} as const;
 
 const PERMISSION_HINT =
   'Reading branch protection needs repository administration:read, which the default ' +
@@ -401,18 +412,23 @@ async function fetchBranchProtection(
     }
 
     if (status === 401 || status === 403) {
-      return unavailable(rateLimitHint(error) ?? PERMISSION_HINT);
+      const rateLimited = rateLimitHint(error);
+      return rateLimited !== undefined
+        ? unavailable(rateLimited)
+        : unavailable(PERMISSION_HINT, PERMISSION.administration);
     }
 
     if (isMissingEndpoint(status)) {
       return unavailable(
         `Neither branch rulesets nor branch protection could be read for '${branch}'. ` +
           `${PERMISSION_HINT} On GitHub Enterprise Server, this version may not expose either endpoint.`,
+        PERMISSION.administration,
       );
     }
 
     return unavailable(
       `Could not read branch protection for '${branch}': ${message(error)}. ${PERMISSION_HINT}`,
+      PERMISSION.administration,
     );
   }
 }
@@ -443,7 +459,8 @@ function describeGraphqlFailure(repo: RepoRef, error: unknown): ProbeUnavailable
   if (status === 401 || status === 403) {
     return unavailable(
       `Not authorised to read pull requests for ${formatRepoRef(repo)}. ` +
-        `Grant the token pull_requests:read to unlock the pull request checks.`,
+        `Grant the token ${PERMISSION.pullRequests} to unlock the pull request checks.`,
+      PERMISSION.pullRequests,
     );
   }
 
@@ -563,8 +580,10 @@ async function fetchDependencyDashboard(
 
     if (status === 401 || status === 403) {
       return unavailable(
-        `Not authorised to read issues for ${formatRepoRef(repo)}. Grant the token issues:read ` +
-          `so a centrally configured Renovate can be detected from its dependency dashboard.`,
+        `Not authorised to read issues for ${formatRepoRef(repo)}. Grant the token ` +
+          `${PERMISSION.issues} so a centrally configured Renovate can be detected from its ` +
+          `dependency dashboard.`,
+        PERMISSION.issues,
       );
     }
 

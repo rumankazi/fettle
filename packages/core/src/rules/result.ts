@@ -43,13 +43,17 @@ export function notApplicable(
   probe: ProbeUnavailable,
   details?: Record<string, unknown>,
 ): RuleResult {
+  // `needs` is copied onto the result so the renderers can group blocked checks by
+  // the grant that fixes them without parsing it back out of the evidence.
+  const merged = probe.needs === undefined ? details : { ...details, needs: probe.needs };
+
   return {
     id,
     status: 'na',
     score: null,
     weight: settings.weight,
     evidence: probe.reason,
-    details,
+    details: merged,
   };
 }
 

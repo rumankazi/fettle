@@ -44,6 +44,7 @@ export {
   type FetchContextOptions,
   type RepoRef,
 } from './github/context.js';
+export { blockedGroups, coverageNote, type BlockedGroup } from './blocked.js';
 export { available, unavailable } from './probe.js';
 export {
   badgeBasename,
@@ -62,10 +63,13 @@ export { evaluateRules, ruleOrder, ruleRegistry } from './rules/rule.js';
 export {
   aggregateRepoScore,
   countsTowardScore,
+  coverageOf,
   FLOOR_GRADES,
   gradeFromScore,
   isFloorGrade,
+  isScoreRepresentative,
   meetsGradeFloor,
+  MIN_COVERAGE,
   thresholdScore,
   type FloorGrade,
 } from './scoring.js';

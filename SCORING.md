@@ -44,8 +44,32 @@ repoScore = Σ (weightᵢ · scoreᵢ) / Σ weightᵢ     over rules with status
 ```
 
 Rules with status `na` contribute to neither numerator nor denominator — a repo is
-never penalized or rewarded for a check we could not run. If ALL rules are `na`,
-`repoScore` is `null` and `grade` is `"N/A"`. Round `repoScore` to 1 decimal.
+never penalized or rewarded for a check we could not run. Round `repoScore` to 1
+decimal.
+
+**Coverage floor.** An average is only as meaningful as the share of the repository
+it saw. Define
+
+```
+coverage = Σ weightᵢ over rules with status pass|fail
+         ─────────────────────────────────────────────
+           Σ weightᵢ over rules with status ≠ disabled
+```
+
+If `coverage < 0.5`, `repoScore` is `null` and `grade` is `"N/A"`. This subsumes the
+all-`na` case, which is `coverage = 0`.
+
+The floor exists because the arithmetic is honest and the result is not: a token
+with only `contents:read` leaves one rule of five scoreable, and averaging that one
+rule reports a confident `F` about a repository that was never read. `N/A` never
+trips `--fail-below` and badges grey, so a permissions problem stops looking like a
+health problem.
+
+`0.5` keeps the ordinary case working: `branch_protection` is weight 3 of 9 and
+degrades to `na` on the default `GITHUB_TOKEN`, leaving coverage `0.667` and a grade
+worth printing.
+
+Every report carries `coverage` regardless, so a consumer can apply its own floor.
 
 ## 4. Grade bands
 
@@ -113,6 +137,13 @@ with a message quoting the offending path). `enabled: false` behaves exactly lik
         },
         // … one entry per rule, always all five, in registry order
       ],
+      "coverage": {
+        "scoredRules": 4,
+        "totalRules": 5,
+        "scoredWeight": 6,
+        "totalWeight": 9,
+        "ratio": 0.667,
+      },
     },
   ],
   "fleet": { "repoCount": 1, "averageScore": 78.6, "grades": { "C": 1 } },
@@ -135,14 +166,20 @@ here is what turns an implementation detail into an accidental promise.
 
 **`details` is split.** These keys are part of the contract and safe to build on:
 
-| Rule                               | Key                 | Meaning                                    |
-| ---------------------------------- | ------------------- | ------------------------------------------ |
-| `open_pr_count`, `stale_prs`       | `value`             | the raw measurement the score derives from |
-| `open_pr_count`, `stale_prs`       | `good_at`, `bad_at` | the thresholds it was scored against       |
-| `open_pr_count`, `stale_prs`       | `truncated`         | `true` when `value` is a lower bound       |
-| `branch_protection`                | `source`            | `ruleset` or `legacy`                      |
-| `codeowners`, `dependency_updates` | `path`              | the file found, when a file is what passed |
-| `dependency_updates`               | `source`            | `config`, `dashboard`, or `null` on a fail |
+| Rule                               | Key                 | Meaning                                             |
+| ---------------------------------- | ------------------- | --------------------------------------------------- |
+| `open_pr_count`, `stale_prs`       | `value`             | the raw measurement the score derives from          |
+| `open_pr_count`, `stale_prs`       | `good_at`, `bad_at` | the thresholds it was scored against                |
+| `open_pr_count`, `stale_prs`       | `truncated`         | `true` when `value` is a lower bound                |
+| `branch_protection`                | `source`            | `ruleset` or `legacy`                               |
+| `codeowners`, `dependency_updates` | `path`              | the file found, when a file is what passed          |
+| `dependency_updates`               | `source`            | `config`, `dashboard`, or `null` on a fail          |
+| any rule with status `na`          | `needs`             | the permission that would unlock it, when one would |
+
+**`coverage` is part of the contract.** `scoredRules`, `totalRules`, `scoredWeight`,
+`totalWeight` and `ratio` are always present, on every repository, whether or not a
+grade was withheld. `totalRules` and `totalWeight` exclude `disabled` rules: turning
+a rule off changes what full coverage means rather than costing you any.
 
 Any **other** key in `details` — `draftsExcluded`, `checkedPaths`, `stalePrNumbers`,
 `enabled` — is diagnostic. It exists to explain a result to a person reading the

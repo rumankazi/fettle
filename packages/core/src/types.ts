@@ -90,6 +90,15 @@ export interface ProbeUnavailable {
   readonly available: false;
   /** Why the data is missing, phrased as user-facing evidence with a fix where one exists. */
   readonly reason: string;
+  /**
+   * The token permission that would unlock this, e.g. `issues:read`.
+   *
+   * Structured rather than left to be read back out of `reason`, so the report can
+   * group blocked checks by the one grant that fixes them. Absent when no
+   * permission would help — an exhausted rate limit, or an endpoint a GHES version
+   * does not have.
+   */
+  readonly needs?: string;
 }
 
 export interface BranchProtection {
@@ -182,12 +191,35 @@ export interface Rule<Id extends RuleId = RuleId> {
 /* Report                                                                     */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * How much of the repository could actually be graded.
+ *
+ * Without this, a token that can read almost nothing produces a confident-looking
+ * `F` — the weighted average is honest about the checks it ran and silent about
+ * the ones it could not (SCORING.md §3).
+ */
+export interface Coverage {
+  /** Rules that produced a score. */
+  scoredRules: number;
+  /** Rules that could have produced one, so excluding `disabled`. */
+  totalRules: number;
+  scoredWeight: number;
+  totalWeight: number;
+  /** `scoredWeight / totalWeight`, or `0` when nothing was applicable. */
+  ratio: number;
+}
+
 export interface RepoReport {
   repo: string;
   defaultBranch: string;
-  /** Weighted aggregate rounded to 1 decimal; `null` when every rule was excluded. */
+  /**
+   * Weighted aggregate rounded to 1 decimal. `null` when too little of the
+   * repository could be read to stand behind a number (SCORING.md §3).
+   */
   score: number | null;
   grade: Grade;
+  /** What the score is based on. Always present, even when `score` is `null`. */
+  coverage: Coverage;
   /** One entry per rule, always all of them, in registry order. */
   rules: RuleResult[];
 }

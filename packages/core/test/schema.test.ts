@@ -43,11 +43,22 @@ describe('the published report schema', () => {
 
   it('carries the documented repository fields', () => {
     expect(Object.keys(report.repos[0]).sort()).toEqual([
+      'coverage',
       'defaultBranch',
       'grade',
       'repo',
       'rules',
       'score',
+    ]);
+  });
+
+  it('carries the documented coverage fields', () => {
+    expect(Object.keys(report.repos[0].coverage).sort()).toEqual([
+      'ratio',
+      'scoredRules',
+      'scoredWeight',
+      'totalRules',
+      'totalWeight',
     ]);
   });
 
