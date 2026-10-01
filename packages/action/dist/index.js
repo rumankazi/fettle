@@ -606,7 +606,7 @@ function renderMarkdown(report) {
   return [heading.join("\n"), ...report.repos.map(renderRepoSection)].join("\n\n");
 }
 
-// ../../node_modules/.pnpm/js-yaml@5.4.1/node_modules/js-yaml/dist/js-yaml.mjs
+// ../../node_modules/.pnpm/js-yaml@5.4.2/node_modules/js-yaml/dist/js-yaml.mjs
 var NOT_RESOLVED = /* @__PURE__ */ Symbol("NOT_RESOLVED");
 function defineScalarTag(tagName, options) {
   return {
@@ -2955,6 +2955,7 @@ function doubleQuoteWhitespaceOnly(layout) {
 function applyForceQuotesOption(layout) {
   if (!layout.presenterOptions.forceQuotes) return;
   if (layout.isKey || layout.style !== SCALAR_STYLE.PLAIN) return;
+  if (layout.node.tag !== layout.presenterOptions.schema.defaultScalarTag.tagName) return;
   layout.style = layout.node.value.includes("\n") ? SCALAR_STYLE.DOUBLE_QUOTED : _preferredQuotedStyle(layout);
 }
 function tryLongOrMultilineAsBlock(layout) {
@@ -4940,5 +4941,5 @@ await runAction({ runtime: createActionRuntime() });
 /*! Bundled license information:
 
 js-yaml/dist/js-yaml.mjs:
-  (*! js-yaml 5.4.1 https://github.com/nodeca/js-yaml @license MIT *)
+  (*! js-yaml 5.4.2 https://github.com/nodeca/js-yaml @license MIT *)
 */
