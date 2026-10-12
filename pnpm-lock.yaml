@@ -53,7 +53,7 @@ importers:
         version: 4.0.9
       js-yaml:
         specifier: ^5.0.0
-        version: 5.4.1
+        version: 5.4.3
 
   packages/cli:
     dependencies:
@@ -68,7 +68,7 @@ importers:
         version: 6.1.6
       js-yaml:
         specifier: ^5.0.0
-        version: 5.4.1
+        version: 5.4.3
     devDependencies:
       '@types/js-yaml':
         specifier: ^4.0.9
@@ -757,8 +757,8 @@ packages:
   isexe@2.0.0:
     resolution: {integrity: sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==}
 
-  js-yaml@5.4.1:
-    resolution: {integrity: sha512-28R/k+NAjeuf7+CKlTxWZVExJGwVVLwY06DgEnOMz2gEpfNkDcD7QvyiVPT0xy0XXhU8vHsd4Ot42OOPdJG7dQ==}
+  js-yaml@5.4.3:
+    resolution: {integrity: sha512-yzzNtgczwgoVHNigCyKTXcQJU4Y8t/ikU4UxXW0BvrLfHTGWZhsNcOT2s/a7vn81/4KqVnNmHjaUEPlvWnNwVw==}
     hasBin: true
 
   json-schema-traverse@0.4.1:
@@ -1708,7 +1708,7 @@ snapshots:
 
   isexe@2.0.0: {}
 
-  js-yaml@5.4.1:
+  js-yaml@5.4.3:
     dependencies:
       argparse: 2.0.1
 
