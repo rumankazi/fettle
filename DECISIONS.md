@@ -739,3 +739,48 @@ their token and it was cutting off the half that said what to do
 is a table and alignment is what makes it scannable — a different job, a different
 answer. Wrapping needed a hard break for words longer than the line, which a test
 caught with a 400-character evidence string that produced a 406-character line.
+
+## D41 — `@octokit/core` v7, and the ReDoS that was not ours to fix
+
+The runtime dependency moves from `@octokit/core` v6 to v7. The surface we use —
+`new Octokit({...})`, `hook.wrap('request', …)`, `rest`, `graphql` — is unchanged,
+so `client.ts` does not move with it.
+
+**What v7 changes is the shape of the bundle.** v7 is ESM-only, and v6 pulled in
+CommonJS, so esbuild had to emit `__require`/`__toESM` interop shims into the
+committed artefact. There are four of them in the v6 bundle and none in the v7
+one. It also drops Node 18, which D35 had already done for us, and brings
+`@octokit/types` v18 with it.
+
+**The transitive dependencies are new, and one of them had a bug.** v7 reaches
+`content-type@3` and `json-with-bigint@3` through `@octokit/request`. The first
+declares Node 22 — exactly the floor D35 set, so it costs nothing. The second
+parses JSON that may hold integers too large for a `Number`, and until
+`json-with-bigint@3.5.12` it did so with
+
+```
+/"(?:\\.|[^"])*"|…/g
+```
+
+The two alternatives overlap: a backslash can be matched by `\\.` or by `[^"]`,
+so a string of many `\!!\!!…` has exponentially many ways to match and the regex
+takes exponential time to give up. CodeQL found it in the committed bundle
+(`js/polynomial-redos`); `pnpm audit`, Socket and Snyk all passed it. It is the
+same class of finding D34 describes, landing in the same place, because the
+bundle is committed and therefore scanned as if it were our own source.
+
+**3.5.12 rewrites it as `[^"\\]|\\.`**, where the alternatives cannot both begin
+at the same character, so the cost is linear. Measured against `"` followed by
+`\!` repeated _n_ times: 3.6 ms at _n_=18, 16 ms at _n_=20, 62 ms at _n_=22 for
+the old pattern, and under 0.01 ms at every size for the new one.
+
+**Why this is written down at all.** The pull request for this bump was opened
+in August and has failed CodeQL ever since, on a transitive dependency it could
+not fix and could not override. The fix was never in the dependency bump: it was
+in the lockfile, which was holding `json-with-bigint@3.5.11`. Re-resolving
+against `main` picks up the fixed version, and the alert goes away on its own.
+
+**What a reviewer should check instead of the version number.** The bump itself
+is mechanical and the type-checker is the test that matters — v7 is a major, so
+`@octokit/types` v18 moved under us too. The part worth a human's attention is
+the lockfile, because that is where the behaviour actually changed.
