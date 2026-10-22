@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.3.1](https://github.com/rumankazi/fettle/compare/v4.3.0...v4.3.1) (2026-10-21)
+
+
+### Bug fixes
+
+* **deps:** update dependency @octokit/core to v7 ([#30](https://github.com/rumankazi/fettle/issues/30)) ([3fb46da](https://github.com/rumankazi/fettle/commit/3fb46da8911290dcf5c41d7749fbe9bdffb31991))
+
 ## [4.3.0](https://github.com/rumankazi/fettle/compare/v4.2.0...v4.3.0) (2026-08-21)
 
 
