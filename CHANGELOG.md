@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.3.2](https://github.com/rumankazi/fettle/compare/v4.3.1...v4.3.2) (2026-10-23)
+
+
+### Documentation
+
+* add AGENTS.md for coding agents ([#87](https://github.com/rumankazi/fettle/issues/87)) ([6d80358](https://github.com/rumankazi/fettle/commit/6d803585ec975d5cbdd6afd0e6ef6e2f0b3c8f69))
+
 ## [4.3.1](https://github.com/rumankazi/fettle/compare/v4.3.0...v4.3.1) (2026-10-21)
 
 
