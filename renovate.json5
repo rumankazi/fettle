@@ -21,6 +21,17 @@
   prConcurrentLimit: 5,
   rebaseWhen: 'behind-base-branch',
 
+  // release-pr.yml pushes the rebuilt Action bundle onto Renovate's branches as the
+  // App (or github-actions[bot] without one). Renovate reads any commit it did not
+  // author as a human edit and stops rebasing, so every merge to main left those
+  // pull requests conflicted on pnpm-lock.yaml until someone rebased by hand.
+  // Ignoring these authors keeps the rebases coming; each one drops the bundle
+  // commit and the workflow re-adds it.
+  gitIgnoredAuthors: [
+    'rk-release-bot[bot]@users.noreply.github.com',
+    'github-actions[bot]@users.noreply.github.com',
+  ],
+
   // Uses GitHub's own auto-merge, so nothing merges until the required checks pass.
   // Without branch protection on main there are no required checks and this would
   // merge immediately — see CONTRIBUTING.md#repository-settings.
