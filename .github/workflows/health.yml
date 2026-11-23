@@ -42,7 +42,7 @@ jobs:
       # administration:read, which the default GITHUB_TOKEN does not have — without
       # it the rule reports `na` and drops out of the score entirely. An App
       # installation token is short-lived and scoped; see CONTRIBUTING.md#tokens.
-      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+      - uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3
         id: app-token
         if: vars.FETTLE_APP_CLIENT_ID != ''
         # If the App has not been granted Administration, minting a token that asks
